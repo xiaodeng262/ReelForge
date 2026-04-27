@@ -1,0 +1,33 @@
+{
+  "name": "reelforge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ReelForge：素材拼接、主题成片与公众号文章读取的 HTTP 服务",
+  "type": "module",
+  "scripts": {
+    "dev:api": "pnpm --filter @reelforge/api dev",
+    "dev:worker-ffmpeg": "pnpm --filter @reelforge/worker-ffmpeg dev",
+    "dev:web": "pnpm --filter @reelforge/web dev",
+    "infra:up": "docker compose up -d redis",
+    "infra:down": "docker compose down",
+    "dev": "ulimit -n 10240 && concurrently -k -n api,ffmpeg,web -c blue,cyan,white \"pnpm dev:api\" \"pnpm dev:worker-ffmpeg\" \"pnpm dev:web\"",
+    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm -r build"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@9.12.3",
+  "pnpm": {
+    "overrides": {
+      "@fastify/static": "^8.3.0"
+    }
+  }
+}

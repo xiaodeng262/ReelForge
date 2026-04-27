@@ -1,0 +1,25 @@
+{
+  "name": "@reelforge/worker-ffmpeg",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@reelforge/shared": "workspace:*",
+    "@reelforge/queue": "workspace:*",
+    "@reelforge/storage": "workspace:*",
+    "@reelforge/llm": "workspace:*",
+    "@reelforge/tts": "workspace:*",
+    "@reelforge/stt": "workspace:*",
+    "@reelforge/media": "workspace:*",
+    "@reelforge/ffmpeg": "workspace:*",
+    "@reelforge/remotion-video": "workspace:*",
+    "@reelforge/wechat": "workspace:*",
+    "undici": "^7.1.0",
+    "p-map": "^7.0.3"
+  }
+}

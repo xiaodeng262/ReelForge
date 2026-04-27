@@ -1,0 +1,45 @@
+# ReelForge Web：Next.js App Router 前端镜像
+# 使用 Next.js 的 "output: standalone" 产物，镜像非常小（~150MB）。
+#
+# 构建策略：
+# - deps 阶段：只装 apps/web 及其依赖的 workspace 包
+# - builder 阶段：把整个仓库复制进来，在 apps/web 目录执行 next build
+# - runner 阶段：只复制 standalone + static 文件，运行 node server.js
+
+FROM node:20-slim AS base
+WORKDIR /app
+RUN corepack enable
+
+# ---- deps：解析依赖 ----
+FROM base AS deps
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY apps/web/package.json apps/web/
+COPY packages/shared/package.json packages/shared/
+RUN pnpm install --frozen-lockfile --prefer-frozen-lockfile || pnpm install
+
+# ---- builder：产出 .next/standalone ----
+FROM base AS builder
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages ./packages
+COPY . .
+# 进入 apps/web 构建；next.config.ts 里 output: "standalone"
+RUN pnpm --filter @reelforge/web build
+
+# ---- runner：最小运行时 ----
+FROM base AS runner
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3006 \
+    HOSTNAME=0.0.0.0
+
+# standalone 产物包含一个自包含的 node_modules 和 server.js
+# 路径：apps/web/.next/standalone/apps/web/server.js
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+EXPOSE 3006
+WORKDIR /app/apps/web
+CMD ["node", "server.js"]

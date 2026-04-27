@@ -1,0 +1,17 @@
+node_modules
+dist
+.env
+.env.local
+*.log
+.DS_Store
+coverage
+.turbo
+
+# Next.js 构建产物
+.next
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# 本地素材缓存
+/tmp
+/storage-local

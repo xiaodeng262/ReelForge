@@ -1,0 +1,22 @@
+# API 镜像：最轻量，只跑 Fastify
+FROM node:20-slim AS base
+WORKDIR /app
+RUN corepack enable
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
+COPY packages/queue/package.json packages/queue/
+COPY packages/storage/package.json packages/storage/
+RUN pnpm install --frozen-lockfile || pnpm install
+
+FROM base AS runner
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=deps /app/packages ./packages
+COPY . .
+
+EXPOSE 3005
+CMD ["pnpm", "--filter", "@reelforge/api", "start"]

@@ -1,0 +1,77 @@
+# 基础设施 + 应用服务编排
+# - 开发联调：docker compose up -d redis           （只起 Redis，应用跑 pnpm dev）
+# - 生产一键：docker compose --profile app up -d   （Redis + api + worker 全拉起）
+# worker-ffmpeg 承担素材拼接与主题成片，公众号文章读取由 api 同步代理。
+# 对象存储由外部雨云 OSS 提供，无需本地容器
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: vgs-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ====== 应用服务（生产部署时用） ======
+  # 开发时推荐本地直接跑 pnpm dev（根脚本 concurrently 启全套），热更新 + 快速反馈
+  # S3 相关配置（endpoint/ak/sk/bucket）走 .env，容器不再覆盖
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: vgs-api
+    ports:
+      - "3005:3005"
+    env_file: .env
+    environment:
+      # 容器内 Redis 地址覆盖（本地 .env 用 127.0.0.1，容器网络需用服务名）
+      REDIS_HOST: redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles: ["app"]
+
+  # 场景 2（用户素材拼接）+ 场景 3（主题成片）合一进程，统一 FFmpeg 直出链路
+  worker-ffmpeg:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker-ffmpeg
+    container_name: vgs-worker-ffmpeg
+    env_file: .env
+    environment:
+      REDIS_HOST: redis
+    volumes:
+      # topic 场景 Pexels 素材二级缓存复用
+      - media-cache:/tmp/vgs-media-cache
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles: ["app"]
+
+  # ReelForge Web（管理台前端）
+  # 走服务端 Route Handler 代理 /api/forge/* → api:3005/v1/*，API Key 在容器内注入
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: vgs-web
+    ports:
+      - "3006:3006"
+    environment:
+      # 容器内走 docker 网络的服务名
+      REELFORGE_API_ORIGIN: http://api:3005
+      # 服务端独有变量（不以 NEXT_PUBLIC_ 开头，不会进浏览器 bundle）
+      REELFORGE_API_KEY: ${REELFORGE_API_KEY:-dev-key}
+    depends_on:
+      - api
+    profiles: ["app"]
+
+volumes:
+  redis-data:
+  media-cache:

@@ -1,0 +1,10 @@
+# worker-ffmpeg 镜像：FFmpeg 直出链路（同时消费 assets-queue 与 topic-queue）
+# 由 worker-assets + worker-mix 物理合并而来；ffmpeg 二进制由 ffmpeg-static 提供
+FROM node:20-slim AS base
+WORKDIR /app
+RUN corepack enable
+
+COPY . .
+RUN pnpm install --frozen-lockfile || pnpm install
+
+CMD ["pnpm", "--filter", "@reelforge/worker-ffmpeg", "start"]
