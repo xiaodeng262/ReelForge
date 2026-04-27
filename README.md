@@ -103,6 +103,8 @@ pnpm infra:down             # 停止 Redis
 docker compose --profile app up -d
 ```
 
+GitHub Actions 自动部署见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
+
 ## 关键接口
 
 | 方法 | 路径 | 说明 |

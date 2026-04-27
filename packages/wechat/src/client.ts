@@ -33,10 +33,10 @@ export interface WechatExtractClient {
 }
 
 export function createWechatExtractClient(): WechatExtractClient {
-  if (!config.wechat.token) {
+  if (!config.wechat.token || config.wechat.apiBase === "https://your-domain.com") {
     throw new AppError(
       ErrorCode.INTERNAL,
-      "WECHAT_EXTRACT_TOKEN is required for wechat article extract"
+      "WECHAT_EXTRACT_API_BASE and WECHAT_EXTRACT_TOKEN are required for wechat article extract"
     );
   }
 

@@ -6,6 +6,7 @@ import {
   childLogger,
   AppError,
   ErrorCode,
+  getResolutionSpec,
   type AssetsJobPayload,
   type SubtitleCue
 } from "@reelforge/shared";
@@ -44,13 +45,13 @@ export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
     // ========== Step 1: 拉素材到本地 ==========
     await reportProgress(job, { percent: 10, step: "fetch", timings });
     const t1 = performance.now();
-    const localMap = new Map<string, string>();
+    const localMap = new Map<string, { path: string; file: AssetsJobPayload["files"][number] }>();
     await pMap(
       payload.files,
       async (f) => {
         const local = path.join(workDir, f.filename);
         await getObjectToFile(f.objectKey, local);
-        localMap.set(f.filename, local);
+        localMap.set(f.filename, { path: local, file: f });
       },
       { concurrency: 4 }
     );
@@ -60,10 +61,12 @@ export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
     await reportProgress(job, { percent: 30, step: "normalize", timings });
     const t2 = performance.now();
     const resolution = payload.meta.resolution ?? "720p";
-    const normalizedPaths: string[] = [];
+    const orientation = payload.meta.orientation ?? "portrait";
+    const canvas = getResolutionSpec(resolution, orientation);
+    const normalizedPaths = new Array<string>(payload.meta.order.length);
     await pMap(
-      payload.meta.order,
-      async (filename) => {
+      payload.meta.order.map((filename, index) => ({ filename, index })),
+      async ({ filename, index }) => {
         const input = localMap.get(filename);
         if (!input) {
           throw new AppError(
@@ -73,8 +76,16 @@ export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
           );
         }
         const out = path.join(workDir, `norm_${filename}.mp4`);
-        await normalize(input, out, { resolution });
-        normalizedPaths.push(out);
+        const loopImageSec = isImage(input.file) ? input.file.durationSec : undefined;
+        const trimSec = !isImage(input.file) ? input.file.durationSec : undefined;
+        await normalize(input.path, out, {
+          resolution,
+          canvas,
+          loopImageSec,
+          trimSec,
+          silentAudio: true
+        });
+        normalizedPaths[index] = out;
       },
       { concurrency: 2 } // FFmpeg 吃 CPU，并发别太高
     );
@@ -91,7 +102,9 @@ export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
         normalizedPaths,
         concatOut,
         payload.meta.transition,
-        resolution
+        resolution,
+        0.5,
+        canvas
       );
     }
     timings.concat = Math.round(performance.now() - t3);
@@ -170,3 +183,7 @@ export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
   }
 }
 
+function isImage(file: AssetsJobPayload["files"][number]): boolean {
+  if (file.mimeType.startsWith("image/")) return true;
+  return /\.(png|jpe?g|webp|gif)$/i.test(file.filename);
+}

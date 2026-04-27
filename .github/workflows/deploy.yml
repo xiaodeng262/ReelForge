@@ -1,0 +1,134 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: reelforge-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      NODE_VERSION: "20.11.1"
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_ENV: ${{ secrets.DEPLOY_ENV }}
+      REELFORGE_COMPOSE_PROJECT: ${{ vars.REELFORGE_COMPOSE_PROJECT }}
+      REELFORGE_COMPOSE_PROFILES: ${{ vars.REELFORGE_COMPOSE_PROFILES }}
+      REELFORGE_HEALTHCHECK_URL: ${{ vars.REELFORGE_HEALTHCHECK_URL }}
+      REELFORGE_SKIP_HEALTHCHECK: ${{ vars.REELFORGE_SKIP_HEALTHCHECK }}
+      REELFORGE_RELEASES_RETAIN: ${{ vars.REELFORGE_RELEASES_RETAIN }}
+      REELFORGE_PRUNE_IMAGES: ${{ vars.REELFORGE_PRUNE_IMAGES }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub secret: ${name}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Prepare release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .deploy
+          git archive --format=tar.gz --output=".deploy/reelforge-${GITHUB_SHA}.tar.gz" HEAD
+          cp scripts/deploy-remote.sh .deploy/deploy-remote.sh
+          if [ -n "${DEPLOY_ENV:-}" ]; then
+            printf '%s\n' "$DEPLOY_ENV" > .deploy/.env.production
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          port="${DEPLOY_PORT:-22}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$port" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload release to server
+        shell: bash
+        run: |
+          set -euo pipefail
+          port="${DEPLOY_PORT:-22}"
+          target="${DEPLOY_USER}@${DEPLOY_HOST}"
+          ssh_opts=(-i ~/.ssh/deploy_key -p "$port" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          scp_opts=(-i ~/.ssh/deploy_key -P "$port" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+
+          ssh "${ssh_opts[@]}" "$target" "mkdir -p /tmp/reelforge-deploy"
+          scp "${scp_opts[@]}" ".deploy/reelforge-${GITHUB_SHA}.tar.gz" "$target:/tmp/reelforge-deploy/release-${GITHUB_SHA}.tar.gz"
+          scp "${scp_opts[@]}" .deploy/deploy-remote.sh "$target:/tmp/reelforge-deploy/deploy-remote-${GITHUB_SHA}.sh"
+          if [ -f .deploy/.env.production ]; then
+            scp "${scp_opts[@]}" .deploy/.env.production "$target:/tmp/reelforge-deploy/env-${GITHUB_SHA}"
+          fi
+
+      - name: Deploy on server
+        shell: bash
+        run: |
+          set -euo pipefail
+          port="${DEPLOY_PORT:-22}"
+          target="${DEPLOY_USER}@${DEPLOY_HOST}"
+          ssh_opts=(-i ~/.ssh/deploy_key -p "$port" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          remote_release="/tmp/reelforge-deploy/release-${GITHUB_SHA}.tar.gz"
+          remote_script="/tmp/reelforge-deploy/deploy-remote-${GITHUB_SHA}.sh"
+          remote_env=""
+          if [ -n "${DEPLOY_ENV:-}" ]; then
+            remote_env="/tmp/reelforge-deploy/env-${GITHUB_SHA}"
+          fi
+
+          ssh "${ssh_opts[@]}" "$target" \
+            "chmod +x '$remote_script' && \
+             REELFORGE_RELEASE_ID='$GITHUB_SHA' \
+             REELFORGE_COMPOSE_PROJECT='${REELFORGE_COMPOSE_PROJECT:-}' \
+             REELFORGE_COMPOSE_PROFILES='${REELFORGE_COMPOSE_PROFILES:-}' \
+             REELFORGE_HEALTHCHECK_URL='${REELFORGE_HEALTHCHECK_URL:-}' \
+             REELFORGE_SKIP_HEALTHCHECK='${REELFORGE_SKIP_HEALTHCHECK:-}' \
+             REELFORGE_RELEASES_RETAIN='${REELFORGE_RELEASES_RETAIN:-}' \
+             REELFORGE_PRUNE_IMAGES='${REELFORGE_PRUNE_IMAGES:-}' \
+             bash '$remote_script' '$DEPLOY_PATH' '$remote_release' '$remote_env'"

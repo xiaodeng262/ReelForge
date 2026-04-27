@@ -431,7 +431,7 @@ export interface AssetsJobPayload {
   jobId: string;
   traceCtx?: TraceCtx;
   // S3 objectKey 列表，worker 从 S3 拉
-  files: Array<{ filename: string; objectKey: string; mimeType: string }>;
+  files: Array<{ filename: string; objectKey: string; mimeType: string; durationSec?: number }>;
   meta: AssetsMeta;
 }
 
