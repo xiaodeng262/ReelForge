@@ -6,9 +6,13 @@ RUN corepack enable
 FROM base AS deps
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
+COPY packages/llm/package.json packages/llm/
+COPY packages/media/package.json packages/media/
 COPY packages/shared/package.json packages/shared/
 COPY packages/queue/package.json packages/queue/
 COPY packages/storage/package.json packages/storage/
+COPY packages/tts/package.json packages/tts/
+COPY packages/wechat/package.json packages/wechat/
 RUN pnpm install --frozen-lockfile || pnpm install
 
 FROM base AS runner
