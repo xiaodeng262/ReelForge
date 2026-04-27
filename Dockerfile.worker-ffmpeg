@@ -1,8 +1,12 @@
 # worker-ffmpeg 镜像：FFmpeg 直出链路（同时消费 assets-queue 与 topic-queue）
-# 由 worker-assets + worker-mix 物理合并而来；ffmpeg 二进制由 ffmpeg-static 提供
 FROM node:20-slim AS base
 WORKDIR /app
 RUN corepack enable
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
+ENV FFMPEG_PATH=/usr/bin/ffmpeg \
+    FFPROBE_PATH=/usr/bin/ffprobe
 
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install

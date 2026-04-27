@@ -18,9 +18,9 @@ const ffprobeStatic = _require("ffprobe-static") as { path: string };
  * - 标准化时固定 fps / sar / sample_rate，避免后续 concat 出问题
  */
 
-// 指向 ffmpeg-static 提供的二进制，避免要求系统预装
-if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
-ffmpeg.setFfprobePath(ffprobeStatic.path);
+// 容器里优先用系统 ffmpeg（Debian 包含 lavfi 等完整输入格式），本地开发回退到 static。
+ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg");
+ffmpeg.setFfprobePath(process.env.FFPROBE_PATH || ffprobeStatic.path);
 
 /**
  * FFmpeg 运行过程中的进度信息：透传 fluent-ffmpeg 的 progress 事件字段。
