@@ -88,6 +88,7 @@ curl -H "Authorization: Bearer dev-key" http://localhost:3005/v1/tts/voices
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `POST` | `/v1/jobs/assets` | 上传素材并按顺序拼接成片 |
+| `POST` | `/v1/jobs/mix` | JSON 兼容协议：传入素材库/上传对象的预签名 URL，转入 assets 队列拼接 |
 | `POST` | `/v1/jobs/topic` | 输入主题，或输入主题 + 已确认脚本，取素材并合成视频 |
 | `POST` | `/v1/jobs/article` | 输入文章正文或公众号链接，用 Folio 模板生成 Remotion 知识视频 |
 | `POST` | `/v1/articles/script-preview` | 输入文章正文或公众号链接，同步生成三段脚本预览 |
@@ -264,6 +265,80 @@ curl -X POST http://localhost:3005/v1/jobs/assets \
   -F 'files=@clip-b.mp4' \
   -F 'meta={"order":["clip-a.mp4","clip-b.mp4"],"transition":"fade","audio":{"enabled":false}}'
 ```
+
+### POST /v1/jobs/mix
+
+JSON 兼容接口，对齐旧版 video-generator 的混剪协议：调用方传入已上传到素材库 / 预签名上传桶的对象 URL，服务端转写为 `assets-queue` 任务后按 `order` 顺序拼接出片。该接口当前不跑 LLM、Pexels、TTS；旧协议里的配音参数也不会在这里生成旁白。
+
+请求类型：`application/json`
+
+请求体：
+
+```json
+{
+  "videoSubject": "夏日清晨城市",
+  "videoAspect": "9:16",
+  "videoTransitionMode": "fade",
+  "videoConcatMode": "sequential",
+  "videoMaterials": [
+    {
+      "url": "https://cdn.example.com/materials/clip-a.mp4",
+      "duration": 6.5,
+      "order": 0
+    },
+    {
+      "url": "https://cdn.example.com/uploads/<jobId>/clip-b.jpg",
+      "order": 1
+    }
+  ],
+  "includeBgm": true,
+  "bgmType": "bgm_system_chill_loopable",
+  "bgmVolume": 0.18,
+  "includeSubtitle": true,
+  "subtitleEnabled": true,
+  "webhookUrl": "https://example.com/reelforge/webhook",
+  "webhookEvents": ["succeeded", "failed"]
+}
+```
+
+字段约束：
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `videoMaterials` | array | 是 | - | 至少一个素材；每项必须带合法 `url` |
+| `videoMaterials[].url` | string | 是 | - | 必须指向 ReelForge 的 `materials/` 或 `uploads/` 对象，URL path 解码后第一段不在白名单内会返回 `400 INVALID_INPUT` |
+| `videoMaterials[].duration` | number | 否 | - | 单位秒，必须为正数。图片素材按该时长循环；视频素材会被裁剪到该时长 |
+| `videoMaterials[].order` | number | 否 | `0` | 升序排序键，相同 order 的相对顺序与请求顺序一致 |
+| `videoSubject` | string | 否 | - | 主题文本；当字幕开启时会作为整段字幕文本显示在第一个素材时间轴上 |
+| `videoAspect` | string | 否 | `9:16` | `16:9` 映射 `landscape`，其它值（含 `9:16` / 留空）映射 `portrait` |
+| `videoTransitionMode` | string | 否 | `none` | `fade/slide/none`，未识别的值按 `none` 处理 |
+| `videoConcatMode` | string | 否 | - | 仅用于兼容旧字段，当前服务端忽略，按 `order` 顺序拼接 |
+| `includeBgm` | boolean | 否 | `false` | 关闭时忽略后续 BGM 字段 |
+| `bgmType` | string | 否 | - | 已存在的 BGM `id`；传 `random` 或不传则从全部 BGM 中随机挑一首 |
+| `bgmVolume` | number | 否 | `0.15` | 0-1，仅在 `includeBgm=true` 时生效 |
+| `includeSubtitle` / `subtitleEnabled` | boolean | 否 | `false` | 任一为真即开启字幕；只有同时配 `videoSubject` 才会真正写入字幕 |
+| `webhookUrl` | string | 否 | - | 终态回调地址 |
+| `webhookEvents` | array | 否 | `["succeeded","failed"]` | 见 [Webhook](#webhook) |
+
+行为说明：
+
+- 服务端会将 `videoMaterials[].url` 解析出对象 key，并按 `order` 升序拼接；最终输出固定 `1080p`。
+- BGM 处理：`includeBgm=true` 且 `bgmType` 指向已存在 BGM 时直接使用；否则从 `/v1/bgm` 列表随机选一项；列表为空则等同关闭。
+- 字幕处理：开启字幕后，会用所有素材累计时长（无任何 `duration` 时回退 3s）作为单条字幕的时间区间。
+- 后期开关：`audio` 锁死为 `{ enabled: false }`，与 `/v1/jobs/assets` 一致。
+
+响应 `202` 同 `/v1/jobs/assets`：
+
+```json
+{
+  "jobId": "1d14d4c0-9bdc-4f6f-b58e-59e3ebf4bd40",
+  "status": "queued"
+}
+```
+
+常见错误：
+
+- `400 INVALID_INPUT`: 请求体不是 JSON 对象、`videoMaterials` 为空、`url` 缺失或非法、`duration` 非正数、`url` 解析后不在 `materials/` / `uploads/` 前缀下。
 
 ### POST /v1/jobs/topic
 
@@ -479,7 +554,7 @@ curl -X POST http://localhost:3005/v1/jobs/assets \
 
 ### GET /v1/jobs/:id
 
-跨队列查询任务状态。当前查询队列包括 `assets-queue`、`topic-queue`、`article-queue`。
+跨队列查询任务状态。当前查询队列包括 `assets-queue`、`topic-queue`、`article-queue`。`/v1/jobs/mix` 提交的任务会落在 `assets-queue`。
 
 响应 `200`：
 
@@ -702,7 +777,7 @@ Query：
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `file` | file | 是 | 支持 `mp4/mov/webm/jpg/png/webp/mp3/wav` |
+| `file` | file | 是 | 支持 `mp4/mov/webm/jpg/png/webp/heic/heif/avif/bmp/mp3/wav` |
 | `label` | string | 否 | 备注 |
 
 响应 `201`：`MaterialItem`。

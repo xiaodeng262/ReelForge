@@ -85,7 +85,7 @@ export async function materialsRoutes(app: FastifyInstance) {
       schema: {
         tags: ["materials"],
         summary: "上传素材（multipart/form-data，字段：file / label）",
-        description: `multipart 字段：file（必填，单文件最大 ${config.api.maxMaterialFileSizeMb}MB，支持 mp4/mov/webm/jpg/png/webp/mp3/wav）；label（可选，备注字符串）。`,
+        description: `multipart 字段：file（必填，单文件最大 ${config.api.maxMaterialFileSizeMb}MB，支持 mp4/mov/webm/jpg/png/webp/heic/heif/avif/bmp/mp3/wav）；label（可选，备注字符串）。`,
         consumes: ["multipart/form-data"],
         response: {
           201: { $ref: "MaterialItem#" },

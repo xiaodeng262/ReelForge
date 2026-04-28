@@ -32,6 +32,7 @@ function redisIndexKey(tenantId: string): string {
 const EXT_TO_KIND: Record<string, MaterialKind> = {
   mp4: "video", mov: "video", webm: "video", m4v: "video", avi: "video",
   jpg: "image", jpeg: "image", png: "image", webp: "image", gif: "image",
+  bmp: "image", avif: "image", heic: "image", heif: "image",
   mp3: "audio", wav: "audio", m4a: "audio", aac: "audio", ogg: "audio", flac: "audio"
 };
 

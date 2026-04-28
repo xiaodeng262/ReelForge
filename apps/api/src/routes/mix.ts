@@ -32,6 +32,7 @@ type MixJobInput = {
 };
 
 const mixQueue = createQueue(QUEUE_NAMES.assets);
+const DEFAULT_IMAGE_DURATION_SEC = 3;
 
 export async function mixRoutes(app: FastifyInstance) {
   app.post(
@@ -170,7 +171,7 @@ function buildCaptions(
   const text = input.videoSubject?.trim();
   if (!enabled || !text) return undefined;
 
-  const total = files.reduce((sum, file) => sum + (file.durationSec ?? 0), 0);
+  const total = files.reduce((sum, file) => sum + captionDurationSec(file), 0);
   return [
     {
       filename: files[0]!.filename,
@@ -179,6 +180,16 @@ function buildCaptions(
       end: total > 0 ? total : 3
     }
   ];
+}
+
+function captionDurationSec(file: AssetsJobPayload["files"][number]): number {
+  if (file.durationSec && file.durationSec > 0) return file.durationSec;
+  return isImageFile(file) ? DEFAULT_IMAGE_DURATION_SEC : 0;
+}
+
+function isImageFile(file: AssetsJobPayload["files"][number]): boolean {
+  if (file.mimeType.startsWith("image/")) return true;
+  return /\.(png|jpe?g|webp|gif|bmp|avif|hei[cf])$/i.test(file.filename);
 }
 
 function mimeTypeFromFilename(filename: string): string {
@@ -199,6 +210,14 @@ function mimeTypeFromFilename(filename: string): string {
       return "image/webp";
     case "gif":
       return "image/gif";
+    case "bmp":
+      return "image/bmp";
+    case "avif":
+      return "image/avif";
+    case "heic":
+      return "image/heic";
+    case "heif":
+      return "image/heif";
     default:
       return "application/octet-stream";
   }

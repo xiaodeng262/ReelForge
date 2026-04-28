@@ -34,6 +34,8 @@ import { createWorker, QUEUE_NAMES, reportProgress, type Job } from "@reelforge/
  *   6. 上传 S3 + 返回预签名 URL
  */
 
+const DEFAULT_IMAGE_DURATION_SEC = 3;
+
 export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
   const payload = job.data;
   const log = childLogger({ jobId: payload.jobId, queue: QUEUE_NAMES.assets });
@@ -76,7 +78,9 @@ export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
           );
         }
         const out = path.join(workDir, `norm_${filename}.mp4`);
-        const loopImageSec = isImage(input.file) ? input.file.durationSec : undefined;
+        const loopImageSec = isImage(input.file)
+          ? imageDurationSec(input.file)
+          : undefined;
         const trimSec = !isImage(input.file) ? input.file.durationSec : undefined;
         await normalize(input.path, out, {
           resolution,
@@ -185,5 +189,12 @@ export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
 
 function isImage(file: AssetsJobPayload["files"][number]): boolean {
   if (file.mimeType.startsWith("image/")) return true;
-  return /\.(png|jpe?g|webp|gif)$/i.test(file.filename);
+  return /\.(png|jpe?g|webp|gif|bmp|avif|hei[cf])$/i.test(file.filename);
+}
+
+function imageDurationSec(file: AssetsJobPayload["files"][number]): number {
+  // 图片没有内建媒体时长；调用方未指定时用稳定默认值，避免 FFmpeg 只输出单帧短片。
+  return file.durationSec && file.durationSec > 0
+    ? file.durationSec
+    : DEFAULT_IMAGE_DURATION_SEC;
 }
