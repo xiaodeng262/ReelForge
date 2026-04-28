@@ -54,24 +54,6 @@ services:
         condition: service_healthy
     profiles: ["app"]
 
-  # ReelForge Web（管理台前端）
-  # 走服务端 Route Handler 代理 /api/forge/* → api:3005/v1/*，API Key 在容器内注入
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    container_name: vgs-web
-    ports:
-      - "3006:3006"
-    environment:
-      # 容器内走 docker 网络的服务名
-      REELFORGE_API_ORIGIN: http://api:3005
-      # 服务端独有变量（不以 NEXT_PUBLIC_ 开头，不会进浏览器 bundle）
-      REELFORGE_API_KEY: ${REELFORGE_API_KEY:-dev-key}
-    depends_on:
-      - api
-    profiles: ["app"]
-
 volumes:
   redis-data:
   media-cache:

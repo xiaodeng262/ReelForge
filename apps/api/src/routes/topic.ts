@@ -11,8 +11,7 @@ import { createQueue, QUEUE_NAMES, DEFAULT_JOB_OPTIONS } from "@reelforge/queue"
 /**
  * POST /v1/jobs/topic
  *
- * 场景 3：主题 → LLM 生成脚本 → Pexels 按脚本取素材 → (可选) TTS + 字幕 + BGM → FFmpeg 合成
- * 脚本/分镜完全由服务端生成，前端不介入。
+ * 场景 3：主题 → LLM 生成脚本（或使用调用方确认脚本）→ Pexels 按脚本取素材 → (可选) TTS + 字幕 + BGM → FFmpeg 合成
  */
 
 const topicQueue = createQueue(QUEUE_NAMES.topic);
@@ -25,7 +24,7 @@ export async function topicRoutes(app: FastifyInstance) {
         tags: ["jobs"],
         summary: "提交主题合成任务（场景 3：主题成片）",
         description:
-          "输入一个主题描述，服务端调用 LLM 生成脚本，按脚本关键词从 Pexels 取素材，可选叠加 TTS 配音、字幕和 BGM，最终 FFmpeg 合成成片。",
+          "输入一个主题描述，服务端调用 LLM 生成脚本；也可传入已确认脚本。支持 customPrompt 作为附加 LLM 指令。",
         body: { $ref: "TopicJobInput#" },
         response: {
           202: { $ref: "JobRef#" },

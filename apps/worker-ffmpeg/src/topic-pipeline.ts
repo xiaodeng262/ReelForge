@@ -8,6 +8,7 @@ import {
   ErrorCode,
   config,
   logger,
+  estimateNarrationDuration,
   type TopicJobPayload,
   type JobResult,
   type SubtitleCue,
@@ -21,7 +22,7 @@ import { getBgm } from "@reelforge/storage";
 import {
   normalize,
   concatFast,
-  concatWithTransition,
+  concatAudio,
   burnSubtitles,
   mixAudio,
   muxVideoAudio,
@@ -37,14 +38,14 @@ import {
   fetchWithCache,
   type PexelsVideo
 } from "@reelforge/media";
-import { createLLM } from "@reelforge/llm";
+import { createLLM, generateTerms } from "@reelforge/llm";
 import { putObjectFromFile, getObjectToFile, getPresignedUrl, keys } from "@reelforge/storage";
 
 /**
  * Topic pipeline（场景 3：主题成片）
  *
  * 入参为主题描述 subject，服务端闭环完成：
- *   1. LLM 按 subject 生成脚本（含 narration + 检索关键词 keywords）
+ *   1. 使用调用方传入的 script，或由 LLM 按 subject 生成脚本（含 narration + 检索关键词 keywords）
  *   2. 用 keywords 在 Pexels 搜素材（带二级缓存 fetchWithCache）
  *   3. 下载 + 归一化 + 拼接
  *   4. 按 audio/subtitle/bgm 三开关串接 TTS / 字幕烧录 / BGM 混音
@@ -147,20 +148,6 @@ function resolvePexelsOrientation(orientation: Orientation): "landscape" | "port
   return orientation;
 }
 
-/** 中文 4 字/秒、英文 2.5 词/秒的粗估 TTS 时长；用于决定要搜多少段素材 */
-function estimateTTSDurationSec(text: string): number {
-  if (!text) return 0;
-  // 去空白后计算字符数；含中文按字、其它按词粗切
-  const cleaned = text.replace(/\s+/g, "");
-  const chineseCount = (cleaned.match(/[\u4e00-\u9fa5]/g) ?? []).length;
-  const nonChineseChars = cleaned.length - chineseCount;
-  // 非中文按 5 chars/word 估词数
-  const wordLike = nonChineseChars / 5;
-  const seconds = chineseCount / 4 + wordLike / 2.5;
-  // 最低给 5 秒，避免极短文本把 clip 数算成 0
-  return Math.max(5, seconds);
-}
-
 // ============================================================
 // ===== 素材描述符 =====
 // ============================================================
@@ -221,15 +208,15 @@ async function materializeToLocal(
 
 /**
  * 下载全部 Pexels 素材 → 归一化（统一画布/编码/采样率）。
- * 每段视频按 clipDurationSec 切段，超出素材时长按素材时长裁。
+ * 每段视频按对应口播段时长切段；素材不足时由 normalize 定格末帧补齐。
  */
 async function prepareSegments(
   materials: RawMaterial[],
   opts: {
     workDir: string;
     canvas: { width: number; height: number; fps: number };
-    /** stock 分支的统一切段时长（秒） */
-    clipDurationSec: number;
+    /** 每段 stock 画面要对齐的口播时长（秒） */
+    clipDurationsSec: number[];
     /** 传入 child logger 以便把 i/n 进度打出来；不传则静默 */
     log?: PipelineLogger;
   }
@@ -253,14 +240,15 @@ async function prepareSegments(
     opts.log?.info({ seg: i + 1, total }, `[${segLabel}] 归一化开始`);
     const normPath = path.join(opts.workDir, `norm-${i}.mp4`);
 
-    // 切段：素材自身不足 clipDurationSec 时按素材时长（避免 ffmpeg 报错）
-    const trimSec = Math.min(opts.clipDurationSec, m.durationSec || opts.clipDurationSec);
+    // 切段：画面段长必须跟对应口播段一致，短素材由 normalize 定格补齐。
+    const targetDurationSec = Math.max(0.5, opts.clipDurationsSec[i] ?? 5);
 
     await normalize(rawPath, normPath, {
       // resolution 仅作类型占位，真正画布走 canvas 覆盖
       resolution: "720p" as Resolution,
       canvas: opts.canvas,
-      trimSec,
+      trimSec: targetDurationSec,
+      padToSec: targetDurationSec,
       // Topic 流派统一丢弃原音轨：后续会被 TTS/BGM 替换；跳过 ffprobe 也更快
       silentAudio: true,
       // 节流打进度：让用户看到当前段 ffmpeg 时间推进到了哪里
@@ -271,7 +259,7 @@ async function prepareSegments(
       {
         elapsedMs: Date.now() - normStart,
         probedDurationSec: normInfo ? Math.round(normInfo.durationSec * 1000) / 1000 : null,
-        expectedDurationSec: trimSec
+        expectedDurationSec: targetDurationSec
       },
       `[${segLabel}] 归一化完成`
     );
@@ -280,55 +268,32 @@ async function prepareSegments(
   return normalizedPaths;
 }
 
-// ============================================================
-// ===== Pexels 素材检索 =====
-// ============================================================
-
 /**
- * 按一组关键词在 Pexels 搜索视频。
- * 每个 term 拿 perPage 个候选；全局按 videoId 去重；累积到 numClips 停止。
- * 单个 term 检索失败不致命（继续下一个）；最终一段都没拿到才抛 MEDIA_FETCH_FAILED。
- * 不足 numClips 时循环复用已有素材补齐 —— 重复段落由二级缓存吸收下载成本。
+ * 按脚本段落逐一取材，保证第 N 段画面使用第 N 段旁白的关键词。
+ * 如果某段关键词无结果，再用全局关键词兜底；仍失败则复用已有素材保持时间轴不断档。
  */
-async function acquireFromPexels(opts: {
-  terms: string[];
-  numClips: number;
+async function acquireSceneMaterials(opts: {
+  scenes: PreparedTopicScene[];
+  fallbackTerms: string[];
   orientation: "landscape" | "portrait";
   targetHeight: number;
 }): Promise<RawMaterial[]> {
-  if (opts.terms.length === 0) {
-    throw new AppError(
-      ErrorCode.INVALID_INPUT,
-      "无法从 LLM 脚本中提取检索关键词",
-      400
-    );
-  }
-
   const out: RawMaterial[] = [];
   const seen = new Set<number>();
 
-  for (const term of opts.terms) {
-    if (out.length >= opts.numClips) break;
-    try {
-      const videos: PexelsVideo[] = await searchVideos(term, {
-        perPage: 8,
-        orientation: opts.orientation
-      });
-      for (const v of videos) {
-        if (out.length >= opts.numClips) break;
-        if (seen.has(v.id)) continue;
-        seen.add(v.id);
-        const file = pickBestVideoFile(v, opts.targetHeight);
-        if (!file) continue;
-        out.push({
-          url: file.link,
-          cacheKey: `pexels-video-${v.id}-${file.quality}`,
-          durationSec: v.duration,
-          order: out.length
-        });
-      }
-    } catch (e) {
-      logger.warn({ term, err: (e as Error).message }, "pexels search failed for term, skipping");
+  for (let i = 0; i < opts.scenes.length; i++) {
+    const scene = opts.scenes[i]!;
+    const terms = scene.terms.length > 0 ? scene.terms : opts.fallbackTerms;
+    const material =
+      (await findMaterialForTerms(terms, opts.orientation, opts.targetHeight, seen, i)) ??
+      (await findMaterialForTerms(opts.fallbackTerms, opts.orientation, opts.targetHeight, seen, i));
+
+    if (material) {
+      out.push(material);
+      continue;
+    }
+    if (out.length > 0) {
+      out.push({ ...out[out.length - 1]!, order: i });
     }
   }
 
@@ -337,18 +302,137 @@ async function acquireFromPexels(opts: {
       ErrorCode.MEDIA_FETCH_FAILED,
       "未在 Pexels 检索到可用素材，请尝试更换主题或调整关键词",
       502,
-      { terms: opts.terms }
+      { terms: opts.fallbackTerms }
     );
   }
 
-  // 不足 numClips：循环复用已有素材补齐
-  const initialLen = out.length;
-  while (out.length < opts.numClips) {
-    const src = out[out.length % initialLen]!;
-    out.push({ ...src, order: out.length });
+  return out;
+}
+
+async function findMaterialForTerms(
+  terms: string[],
+  orientation: "landscape" | "portrait",
+  targetHeight: number,
+  seen: Set<number>,
+  order: number
+): Promise<RawMaterial | null> {
+  for (const term of terms) {
+    try {
+      const videos: PexelsVideo[] = await searchVideos(term, {
+        perPage: 8,
+        orientation
+      });
+      for (const v of videos) {
+        if (seen.has(v.id)) continue;
+        const file = pickBestVideoFile(v, targetHeight);
+        if (!file) continue;
+        seen.add(v.id);
+        return {
+          url: file.link,
+          cacheKey: `pexels-video-${v.id}-${file.quality}`,
+          durationSec: v.duration,
+          order
+        };
+      }
+    } catch (e) {
+      logger.warn({ term, err: (e as Error).message }, "pexels search failed for term, skipping");
+    }
+  }
+  return null;
+}
+
+interface PreparedTopicScript {
+  source: "provided" | "generated";
+  videoScript: string;
+  terms: string[];
+  sceneCount: number;
+  scenes: PreparedTopicScene[];
+}
+
+interface PreparedTopicScene {
+  narration: string;
+  terms: string[];
+}
+
+async function prepareGeneratedScript(
+  subject: string,
+  maxSeconds: number,
+  customPrompt?: string
+): Promise<PreparedTopicScript> {
+  const llmScript: Script = await getLLM().generateScriptFromKeyword(
+    { keyword: subject, maxSeconds, customPrompt },
+    maxSeconds
+  );
+  const scenes = llmScript.scenes
+    .map((s) => ({
+      narration: s.narration.trim(),
+      terms: (s.keywords ?? []).map((term) => term.trim()).filter(Boolean)
+    }))
+    .filter((s) => s.narration.length > 0);
+  const videoScript = scenes.map((s) => s.narration).join("。");
+  const flat = llmScript.scenes.flatMap((s) => s.keywords ?? []);
+  const terms = Array.from(new Set(flat)).slice(0, 8);
+  return {
+    source: "generated",
+    videoScript,
+    terms: terms.length > 0 ? terms : [subject],
+    sceneCount: scenes.length,
+    scenes: scenes.map((scene) => ({
+      ...scene,
+      terms: scene.terms.length > 0 ? scene.terms : [subject]
+    }))
+  };
+}
+
+async function prepareProvidedScript(
+  subject: string,
+  script: string,
+  log: PipelineLogger
+): Promise<PreparedTopicScript> {
+  let terms: string[];
+  try {
+    const result = await generateTerms(getLLM(), {
+      videoSubject: subject,
+      videoScript: script,
+      amount: 8
+    });
+    terms = Array.from(new Set(result.terms.map((term) => term.trim()).filter(Boolean))).slice(0, 8);
+  } catch (err) {
+    log.warn(
+      { err: (err as Error).message, subject },
+      "[脚本准备] 用户脚本关键词提取失败，回退到 subject 检索"
+    );
+    terms = [subject];
   }
 
-  return out;
+  const scenes = splitScriptSegments(script);
+
+  return {
+    source: "provided",
+    videoScript: script,
+    terms: terms.length > 0 ? terms : [subject],
+    sceneCount: scenes.length,
+    scenes: scenes.map((narration) => ({
+      narration,
+      terms: terms.length > 0 ? terms : [subject]
+    }))
+  };
+}
+
+function splitScriptSegments(script: string): string[] {
+  const paragraphs = script
+    .replace(/\r\n?/g, "\n")
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (paragraphs.length > 1) return paragraphs;
+
+  const sentences = script
+    .replace(/\r\n?/g, "\n")
+    .split(/(?<=[。！？.!?])\s*/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return sentences.length > 0 ? sentences : [script.trim()].filter(Boolean);
 }
 
 // ============================================================
@@ -378,21 +462,20 @@ export async function runTopicPipeline(job: Job<TopicJobPayload>): Promise<Topic
   const pexelsOrientation = resolvePexelsOrientation(orientation);
 
   try {
-    // ============== 阶段 0：LLM 生成脚本 ==============
-    const llmStart = beginStage(log, "脚本准备", { subject: payload.subject });
+    // ============== 阶段 0：准备脚本 ==============
+    const llmStart = beginStage(log, "脚本准备", {
+      subject: payload.subject,
+      scriptSource: payload.script ? "provided" : "generated"
+    });
     const maxSeconds = payload.maxSeconds ?? 60;
-    const llmScript: Script = await getLLM().generateScriptFromKeyword(
-      { keyword: payload.subject, maxSeconds },
-      maxSeconds
-    );
-    // 把每个 scene 的 narration 拼成完整文本，作为 TTS / 字幕基底
-    const videoScript = llmScript.scenes
-      .map((s) => s.narration.trim())
-      .filter((s) => s.length > 0)
-      .join("。");
+    const scriptPlan = payload.script
+      ? await prepareProvidedScript(payload.subject, payload.script, log)
+      : await prepareGeneratedScript(payload.subject, maxSeconds, payload.customPrompt);
+    const { videoScript, terms, scenes } = scriptPlan;
     timings.llm = Date.now() - llmStart;
     endStage(log, "脚本准备", llmStart, {
-      scenes: llmScript.scenes.length,
+      source: scriptPlan.source,
+      scenes: scriptPlan.sceneCount,
       chars: videoScript.length
     });
 
@@ -400,27 +483,26 @@ export async function runTopicPipeline(job: Job<TopicJobPayload>): Promise<Topic
     await reportProgress(job, { percent: 8, step: "planning" });
     const planStart = beginStage(log, "素材规划");
 
-    // Scene.keywords 重构后改为 optional；缺失时用空数组兜底
-    const flat = llmScript.scenes.flatMap((s) => s.keywords ?? []);
-    let terms = Array.from(new Set(flat)).slice(0, 8);
-    if (terms.length === 0) {
-      // LLM 没给关键词的兜底：直接用 subject
-      terms = [payload.subject];
-    }
-
-    // 预算：按 TTS 时长估算需要几段素材；每段默认 5s
-    const clipDurationSec = 5;
-    const estimatedTtsSec = videoScript ? estimateTTSDurationSec(videoScript) : 30;
-    const numClips = Math.min(20, Math.max(1, Math.ceil(estimatedTtsSec / clipDurationSec) + 1));
+    await reportProgress(job, { percent: 12, step: audioEnabled ? "tts" : "planning" });
+    const sceneDurations = audioEnabled
+      ? await synthSceneAudio(scenes, payload, workDir, timings, log)
+      : scenes.map((scene) => estimateNarrationDuration(scene.narration));
+    const totalNarrationSec = sceneDurations.reduce((sum, sec) => sum + sec, 0);
+    const numClips = scenes.length;
 
     log.info(
-      { terms, estimatedTtsSec, clipDurationSec, numClips, orientation: pexelsOrientation },
+      {
+        terms,
+        totalNarrationSec: Math.round(totalNarrationSec * 10) / 10,
+        numClips,
+        orientation: pexelsOrientation
+      },
       "[素材规划] Pexels 检索关键词"
     );
 
-    const rawMaterials = await acquireFromPexels({
-      terms,
-      numClips,
+    const rawMaterials = await acquireSceneMaterials({
+      scenes,
+      fallbackTerms: terms,
       orientation: pexelsOrientation,
       targetHeight: canvas.height
     });
@@ -432,7 +514,7 @@ export async function runTopicPipeline(job: Job<TopicJobPayload>): Promise<Topic
     const normalizedPaths = await prepareSegments(rawMaterials, {
       workDir,
       canvas,
-      clipDurationSec,
+      clipDurationsSec: sceneDurations,
       log
     });
     timings.download_normalize = Date.now() - dlStart;
@@ -449,28 +531,18 @@ export async function runTopicPipeline(job: Job<TopicJobPayload>): Promise<Topic
       probedDurationSec: concatInfo ? Math.round(concatInfo.durationSec * 1000) / 1000 : null
     });
 
-    // ============== 阶段 4：TTS（可选） ==============
+    // ============== 阶段 4：TTS 合轨（可选） ==============
     let currentVideoPath = concatPath;
-    if (audioEnabled && videoScript) {
-      await reportProgress(job, { percent: 65, step: "tts" });
-      const ttsStart = beginStage(log, "语音合成", { chars: videoScript.length });
-      const ttsMp3 = await ttsClient.synth({
-        input: videoScript,
-        voice: payload.audio?.voice
-      });
-      const ttsPath = path.join(workDir, "voice.mp3");
-      await fs.writeFile(ttsPath, ttsMp3);
-      log.info({ bytes: ttsMp3.length }, "[语音合成] 音频已生成，开始合轨");
+    if (audioEnabled && scenes.length > 0) {
+      await reportProgress(job, { percent: 65, step: "mux_audio" });
       const withVoicePath = path.join(workDir, "with-voice.mp4");
       await muxVideoAudio(
         currentVideoPath,
-        ttsPath,
+        path.join(workDir, "voice.mp3"),
         withVoicePath,
         makeFfmpegProgressLogger(log, "语音合成 合轨")
       );
       currentVideoPath = withVoicePath;
-      timings.tts = Date.now() - ttsStart;
-      endStage(log, "语音合成", ttsStart);
     }
 
     // ============== 阶段 5：BGM（可选） ==============
@@ -509,8 +581,7 @@ export async function runTopicPipeline(job: Job<TopicJobPayload>): Promise<Topic
       }
     }
 
-    // muxVideoAudio 走 "视频主导长度"（apad 补齐 TTS 尾部静音），因此这里 probe 到的
-    // 就是最终成片时长；字幕需要按此时长均分，避免漂移出片尾。
+    // 字幕使用同一组 sceneDurations，和口播段落、画面段落共用时间轴。
     const finalDuration = await getAudioDuration(currentVideoPath);
 
     // ============== 阶段 6：字幕烧录（可选） ==============
@@ -519,7 +590,7 @@ export async function runTopicPipeline(job: Job<TopicJobPayload>): Promise<Topic
       const subStart = beginStage(log, "字幕烧录", {
         finalDuration: Math.round(finalDuration * 10) / 10
       });
-      const cues = evenlySplitSubtitles(videoScript, finalDuration);
+      const cues = sceneCues(scenes, sceneDurations, finalDuration);
       if (cues.length > 0) {
         const srtPath = path.join(workDir, "subs.srt");
         await writeSrt(cues, srtPath);
@@ -577,20 +648,87 @@ export async function runTopicPipeline(job: Job<TopicJobPayload>): Promise<Topic
 // ===== 字幕工具 =====
 // ============================================================
 
-/** 粗略按句号/问号/叹号拆句，按总时长均分生成字幕 cues */
-function evenlySplitSubtitles(
-  videoScript: string,
+async function synthSceneAudio(
+  scenes: PreparedTopicScene[],
+  payload: TopicJobPayload,
+  workDir: string,
+  timings: Record<string, number>,
+  log: PipelineLogger
+): Promise<number[]> {
+  const ttsStart = beginStage(log, "语音合成", { scenes: scenes.length });
+  const audioPaths: string[] = [];
+  const durations: number[] = [];
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i]!;
+    const mp3 = await ttsClient.synth({
+      input: scene.narration,
+      voice: payload.audio?.voice
+    });
+    const scenePath = path.join(workDir, `voice-${i}.mp3`);
+    await fs.writeFile(scenePath, mp3);
+    audioPaths.push(scenePath);
+    durations.push(await getAudioDuration(scenePath));
+  }
+  await concatAudio(audioPaths, path.join(workDir, "voice.mp3"));
+  timings.tts = Date.now() - ttsStart;
+  endStage(log, "语音合成", ttsStart, { audioSegments: audioPaths.length });
+  // 直接返回真实 TTS 时长。曾经用 Math.max(real, estimate) 兜底，但视频/字幕轨道
+  // 因此被吹大，而 muxVideoAudio 是按真实音频拼接（apad 补尾静音）→ 中段口播会
+  // 越来越领先于字幕。同步压倒"段落最小可读时长"，宁可画面短也不要口播错位。
+  return durations;
+}
+
+/**
+ * 把 scenes 的 narration 切成 cue：
+ *   - 按 [。！？.!?] 切句，每句一条字幕（避免整段贴上去）
+ *   - 同一 scene 内按字符数比例分摊真实时长
+ *   - 最后一条贴齐成片时长，吸收四舍五入累积误差
+ * 字符长度用 Array.from(...).length，CJK 单字算 1，与肉眼对应一致。
+ */
+function sceneCues(
+  scenes: PreparedTopicScene[],
+  durations: number[],
   totalDurationSec: number
 ): SubtitleCue[] {
-  const sentences = videoScript
-    .split(/[。！？.!?]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  if (sentences.length === 0) return [];
-  const per = totalDurationSec / sentences.length;
-  return sentences.map((text, i) => ({
-    start: i * per,
-    end: Math.min((i + 1) * per, totalDurationSec),
-    text
-  }));
+  const cues: SubtitleCue[] = [];
+  let cursor = 0;
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i]!;
+    const sceneDuration = durations[i] ?? estimateNarrationDuration(scene.narration);
+    const isLastScene = i === scenes.length - 1;
+    const sceneEnd = isLastScene
+      ? totalDurationSec
+      : Math.min(cursor + sceneDuration, totalDurationSec);
+    const span = Math.max(0, sceneEnd - cursor);
+    const sentences = splitNarrationSentences(scene.narration);
+    if (sentences.length === 0 || span <= 0) {
+      cursor = sceneEnd;
+      continue;
+    }
+    const lengths = sentences.map(charLen);
+    const totalChars = lengths.reduce((sum, n) => sum + n, 0) || 1;
+    let segCursor = cursor;
+    for (let j = 0; j < sentences.length; j++) {
+      const isLastSentence = j === sentences.length - 1;
+      const ratio = lengths[j]! / totalChars;
+      const segEnd = isLastSentence ? sceneEnd : Math.min(segCursor + span * ratio, sceneEnd);
+      if (segEnd > segCursor) {
+        cues.push({ start: segCursor, end: segEnd, text: sentences[j]! });
+      }
+      segCursor = segEnd;
+    }
+    cursor = sceneEnd;
+  }
+  return cues;
+}
+
+function splitNarrationSentences(text: string): string[] {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed) return [];
+  const re = /[^。！？.!?\n]+[。！？.!?]?/g;
+  return (trimmed.match(re) ?? [trimmed]).map((s) => s.trim()).filter(Boolean);
+}
+
+function charLen(text: string): number {
+  return Array.from(text).length;
 }

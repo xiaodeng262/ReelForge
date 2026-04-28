@@ -7,9 +7,10 @@ import {
   type Script
 } from "@reelforge/shared";
 import { type LLMClient, parseScriptJson, enforceMaxDuration } from "./index.js";
+import { llmHttpsAgent } from "./agent.js";
 import {
   buildKeywordSystemPrompt,
-  buildKeywordUserPrompt
+  buildKeywordUserPromptFromInput
 } from "./prompt.js";
 
 /**
@@ -23,7 +24,8 @@ export function createOpenAIClient(): LLMClient {
   const client = new OpenAI({
     apiKey: config.llm.openai.apiKey,
     baseURL: config.llm.openai.baseUrl,
-    timeout: config.llm.timeoutMs
+    timeout: config.llm.timeoutMs,
+    httpAgent: llmHttpsAgent
   });
 
   return {
@@ -36,7 +38,7 @@ export function createOpenAIClient(): LLMClient {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: buildKeywordSystemPrompt(input, maxSeconds) },
-          { role: "user", content: buildKeywordUserPrompt(input.keyword) }
+          { role: "user", content: buildKeywordUserPromptFromInput(input) }
         ],
         temperature: 0.7
       });

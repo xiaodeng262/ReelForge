@@ -8,6 +8,9 @@ import {
   AssetsMeta,
   TopicJobInput,
   ArticleJobInput,
+  ArticleCustomScriptPreviewInput,
+  ArticleScriptPreview,
+  ArticleScriptPreviewInput,
   TTSVoice,
   TTSPreviewInput,
   MediaSearchInput,
@@ -17,6 +20,7 @@ import {
   BgmItem,
   BgmCategoriesResult,
   BgmListResult,
+  BgmPreviewResult,
   WechatArticleExtractInput,
   WechatArticleExtractResult
 } from "@reelforge/shared";
@@ -76,6 +80,9 @@ export async function registerSwagger(app: FastifyInstance) {
   const assetsMetaSchema = toJsonSchema(AssetsMeta);
   const topicJobInputSchema = toJsonSchema(TopicJobInput);
   const articleJobInputSchema = toJsonSchema(ArticleJobInput);
+  const articleCustomScriptPreviewInputSchema = toJsonSchema(ArticleCustomScriptPreviewInput);
+  const articleScriptPreviewSchema = toJsonSchema(ArticleScriptPreview);
+  const articleScriptPreviewInputSchema = toJsonSchema(ArticleScriptPreviewInput);
   const ttsVoiceSchema = toJsonSchema(TTSVoice);
   const ttsPreviewInputSchema = toJsonSchema(TTSPreviewInput);
   const mediaSearchInputSchema = toJsonSchema(MediaSearchInput);
@@ -85,6 +92,7 @@ export async function registerSwagger(app: FastifyInstance) {
   const bgmItemSchema = toJsonSchema(BgmItem);
   const bgmCategoriesResultSchema = toJsonSchema(BgmCategoriesResult);
   const bgmListResultSchema = toJsonSchema(BgmListResult);
+  const bgmPreviewResultSchema = toJsonSchema(BgmPreviewResult);
   const wechatArticleExtractInputSchema = toJsonSchema(WechatArticleExtractInput);
   const wechatArticleExtractResultSchema = toJsonSchema(WechatArticleExtractResult);
 
@@ -93,6 +101,12 @@ export async function registerSwagger(app: FastifyInstance) {
     { $id: "AssetsMeta", ...stripMeta(assetsMetaSchema) },
     { $id: "TopicJobInput", ...stripMeta(topicJobInputSchema) },
     { $id: "ArticleJobInput", ...stripMeta(articleJobInputSchema) },
+    {
+      $id: "ArticleCustomScriptPreviewInput",
+      ...stripMeta(articleCustomScriptPreviewInputSchema)
+    },
+    { $id: "ArticleScriptPreview", ...stripMeta(articleScriptPreviewSchema) },
+    { $id: "ArticleScriptPreviewInput", ...stripMeta(articleScriptPreviewInputSchema) },
     { $id: "TTSVoice", ...stripMeta(ttsVoiceSchema) },
     { $id: "TTSPreviewInput", ...stripMeta(ttsPreviewInputSchema) },
     { $id: "MediaSearchInput", ...stripMeta(mediaSearchInputSchema) },
@@ -102,6 +116,7 @@ export async function registerSwagger(app: FastifyInstance) {
     { $id: "BgmItem", ...stripMeta(bgmItemSchema) },
     { $id: "BgmCategoriesResult", ...stripMeta(bgmCategoriesResultSchema) },
     { $id: "BgmListResult", ...stripMeta(bgmListResultSchema) },
+    { $id: "BgmPreviewResult", ...stripMeta(bgmPreviewResultSchema) },
     { $id: "WechatArticleExtractInput", ...stripMeta(wechatArticleExtractInputSchema) },
     { $id: "WechatArticleExtractResult", ...stripMeta(wechatArticleExtractResultSchema) },
     {
@@ -189,6 +204,7 @@ export async function registerSwagger(app: FastifyInstance) {
       servers: [{ url: "http://localhost:3005", description: "本地开发" }],
       tags: [
         { name: "jobs", description: "任务提交与状态查询" },
+        { name: "articles", description: "文章成片辅助能力" },
         { name: "tts", description: "TTS 音色目录 + 试听" },
         { name: "media", description: "素材检索（Pexels，topic 场景使用）" },
         { name: "materials", description: "素材库（assets 场景使用）" },

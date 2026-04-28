@@ -71,6 +71,27 @@ export type Script = z.infer<typeof Script>;
 // 当前只保留 magazine（Folio）一个模板。如果未来要扩展，把其它值加回 enum 即可。
 export const ArticleVideoTemplate = z.enum(["magazine"]);
 export type ArticleVideoTemplate = z.infer<typeof ArticleVideoTemplate>;
+const ARTICLE_TEXT_MAX = 20_000;
+const WECHAT_ARTICLE_URL_RE = /^https?:\/\/(mp\.weixin\.qq\.com|weixin\.qq\.com)\//i;
+const CUSTOM_PROMPT_MAX = 500;
+
+const CustomPromptInput = z.preprocess((v) => {
+  if (typeof v !== "string") return v;
+  const cleaned = v
+    .replace(/[\u0000-\u0009\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+  return cleaned.length > 0 ? cleaned.slice(0, CUSTOM_PROMPT_MAX) : undefined;
+}, z.string().optional());
+
+const RequiredCustomPromptInput = z.preprocess((v) => {
+  if (typeof v !== "string") return v;
+  const cleaned = v
+    .replace(/[\u0000-\u0009\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+  return cleaned.slice(0, CUSTOM_PROMPT_MAX);
+}, z.string().min(1));
 
 export const ArticleVisualKind = z.enum([
   "hook-card",
@@ -99,6 +120,25 @@ export const ArticleVideoPlan = z.object({
   scenes: z.array(ArticleScene).min(3).max(14)
 });
 export type ArticleVideoPlan = z.infer<typeof ArticleVideoPlan>;
+
+export const ArticleScriptSegment = z.object({
+  type: z.enum(["intro", "body", "outro"]),
+  text: z.string().min(1)
+});
+export type ArticleScriptSegment = z.infer<typeof ArticleScriptSegment>;
+
+export const ArticleScriptPreview = z.object({
+  segments: z.array(ArticleScriptSegment).min(1),
+  removed: z.array(
+    z.object({
+      reason: z.string().min(1),
+      text: z.string().min(1)
+    })
+  ),
+  suggestedTitle: z.string().min(1).max(120).optional(),
+  suggestedTopic: z.string().min(1).max(30).optional()
+});
+export type ArticleScriptPreview = z.infer<typeof ArticleScriptPreview>;
 
 // ========== 字幕 cue ==========
 // Whisper 返回的词级时间戳；FFmpeg 字幕链路可按 cue 生成 SRT。
@@ -135,6 +175,46 @@ export const RESOLUTION_SPEC: Record<Resolution, { width: number; height: number
 // 两种场景同一套渲染管线即可支持。
 export const Orientation = z.enum(["landscape", "portrait"]);
 export type Orientation = z.infer<typeof Orientation>;
+
+export const ArticleScriptPreviewInput = z
+  .object({
+    text: z.string().min(1).max(ARTICLE_TEXT_MAX).optional(),
+    articleUrl: z
+      .string()
+      .url()
+      .refine((v) => WECHAT_ARTICLE_URL_RE.test(v), {
+        message: "仅支持 mp.weixin.qq.com / weixin.qq.com 域名下的文章链接"
+      })
+      .optional(),
+    title: z.string().min(1).max(120).optional(),
+    customPrompt: CustomPromptInput,
+    maxSeconds: z.number().int().positive().max(300).optional().default(90),
+    orientation: Orientation.optional().default("landscape")
+  })
+  .refine((v) => !!v.text !== !!v.articleUrl, {
+    message: "exactly one of `text` or `articleUrl` must be provided"
+  });
+export type ArticleScriptPreviewInput = z.infer<typeof ArticleScriptPreviewInput>;
+
+export const ArticleCustomScriptPreviewInput = z
+  .object({
+    text: z.string().min(1).max(ARTICLE_TEXT_MAX).optional(),
+    articleUrl: z
+      .string()
+      .url()
+      .refine((v) => WECHAT_ARTICLE_URL_RE.test(v), {
+        message: "仅支持 mp.weixin.qq.com / weixin.qq.com 域名下的文章链接"
+      })
+      .optional(),
+    title: z.string().min(1).max(120).optional(),
+    customPrompt: RequiredCustomPromptInput,
+    maxSeconds: z.number().int().positive().max(300).optional().default(90),
+    orientation: Orientation.optional().default("landscape")
+  })
+  .refine((v) => !!v.text !== !!v.articleUrl, {
+    message: "exactly one of `text` or `articleUrl` must be provided"
+  });
+export type ArticleCustomScriptPreviewInput = z.infer<typeof ArticleCustomScriptPreviewInput>;
 
 /**
  * 按分辨率档位 + 方向计算最终画面尺寸
@@ -197,11 +277,19 @@ export type BgmCfg = z.infer<typeof BgmCfg>;
 
 // ========== /v1/jobs/topic 提交参数 ==========
 // 业务意图：输入一个主题，服务端闭环生成视频：
-//   LLM 生成脚本 → Pexels 按脚本取素材 → (可选) TTS + 字幕 + BGM → FFmpeg 合成
-// 脚本完全由服务端生成，前端不介入。
+//   LLM 生成脚本（或使用调用方确认过的脚本）→ Pexels 按脚本取素材 → (可选) TTS + 字幕 + BGM → FFmpeg 合成
+const TopicJobScriptInput = z.preprocess((v) => {
+  if (typeof v !== "string") return v;
+  const normalized = v.replace(/\r\n?/g, "\n").trim();
+  return normalized.length > 0 ? normalized : undefined;
+}, z.string().min(10).max(5000).optional());
+
 export const TopicJobInput = z.object({
   // 主题描述（必填），LLM 据此生成脚本
   subject: z.string().min(1).max(200),
+  // 可选：调用方已确认过的视频文案。传入后 worker 不再重新生成脚本。
+  script: TopicJobScriptInput,
+  customPrompt: CustomPromptInput,
   // 目标成片秒数预算；默认 60s，硬上限 180s
   maxSeconds: z.number().int().positive().max(180).optional().default(60),
   // 分辨率；默认 1080p
@@ -219,8 +307,6 @@ export type TopicJobInput = z.infer<typeof TopicJobInput>;
 
 // ========== /v1/jobs/article 提交参数 ==========
 // 业务意图：输入文章正文或公众号链接，生成以排版/图形/字幕为主体的 Remotion 知识视频。
-const ARTICLE_TEXT_MAX = 20_000;
-const WECHAT_ARTICLE_URL_RE = /^https?:\/\/(mp\.weixin\.qq\.com|weixin\.qq\.com)\//i;
 export const ArticleJobInput = z
   .object({
     text: z.string().min(1).max(ARTICLE_TEXT_MAX).optional(),
@@ -232,6 +318,7 @@ export const ArticleJobInput = z
       })
       .optional(),
     title: z.string().min(1).max(120).optional(),
+    customPrompt: CustomPromptInput,
     maxSeconds: z.number().int().positive().max(300).optional().default(90),
     resolution: Resolution.optional().default("1080p"),
     orientation: Orientation.optional().default("portrait"),
@@ -254,6 +341,7 @@ export const KeywordScriptInput = z.object({
   keyword: z.string().min(1).max(100),
   // 视频风格，决定 prompt 分支；不传默认 news
   style: z.enum(["news", "vlog", "teach"]).optional(),
+  customPrompt: CustomPromptInput,
   // 目标成片秒数；用于 prompt 内的时长预算，同时做代码兜底截断
   // 上限 180s，避免 topic pipeline 被异常长脚本拖垮
   maxSeconds: z.number().int().positive().max(180).optional()
@@ -559,6 +647,12 @@ export const BgmListResult = z.object({
   total: z.number().int().nonnegative()
 });
 export type BgmListResult = z.infer<typeof BgmListResult>;
+
+export const BgmPreviewResult = z.object({
+  url: z.string().url(),
+  expiresInSec: z.number().int().positive()
+});
+export type BgmPreviewResult = z.infer<typeof BgmPreviewResult>;
 
 // ========== API Key 元数据 ==========
 // 存在 Redis Hash：reelforge:api_keys:{keyHash}

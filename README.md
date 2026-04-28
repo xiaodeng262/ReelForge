@@ -14,8 +14,8 @@ ReelForge 是一个视频任务 HTTP 服务。当前保留的能力边界是：
 ## 架构
 
 ```text
-Client / Web (Next.js 管理台, 3006)
-        │  Route Handler 代理  /api/forge/*
+HTTP Client / 调用方
+        │
         ▼
 apps/api (Fastify, 3005) ── Redis / BullMQ ── apps/worker-ffmpeg
         │                                      ├─ assets-queue  素材拼接
@@ -43,10 +43,6 @@ ReelForge/
 │   │       ├── topic-pipeline.ts
 │   │       ├── webhook.ts
 │   │       └── index.ts
-│   └── web/                 Next.js 任务管理台（端口 3006）
-│       ├── app/             App Router 页面与 Route Handler
-│       ├── components/      jobs / shell / ui
-│       └── lib/             API 客户端、本地 store、类型
 │
 ├── packages/
 │   ├── shared/              共享类型、配置、日志、错误
@@ -64,7 +60,6 @@ ReelForge/
 ├── design-prototypes/       设计稿/原型（预留）
 ├── Dockerfile.api
 ├── Dockerfile.worker-ffmpeg
-├── Dockerfile.web
 ├── docker-compose.yml       Redis + 可选应用服务（profile=app）
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json
@@ -76,28 +71,26 @@ ReelForge/
 pnpm install
 cp .env.example .env
 pnpm infra:up     # 启动 Redis
-pnpm dev          # 并行启动 api / worker-ffmpeg / web
+pnpm dev          # 并行启动 api / worker-ffmpeg
 ```
 
 `pnpm dev` 会启动：
 
 - `api`（Fastify，`http://localhost:3005`）
 - `worker-ffmpeg`
-- `web`（Next.js，`http://localhost:3006`）
 
 ## 常用命令
 
 ```bash
 pnpm dev:api                # 仅启动 API
 pnpm dev:worker-ffmpeg      # 仅启动 worker
-pnpm dev:web                # 仅启动 Web
 pnpm -r typecheck           # 全量类型检查
 pnpm -r build               # 全量构建
 pnpm infra:up               # 拉起 Redis
 pnpm infra:down             # 停止 Redis
 ```
 
-生产容器编排（Redis + api + worker-ffmpeg + web）：
+生产容器编排（Redis + api + worker-ffmpeg）：
 
 ```bash
 docker compose --profile app up -d
@@ -155,7 +148,7 @@ S3_SECRET_KEY=...
 - **背景动效**：两层缓慢漂移的暖光 blob（30s/38s 异相），暂停时也不像图片
 - **字幕**：默认开启，由 Remotion 端自渲染（深墨字 + paper outline 浮起感）；FFmpeg burn-in 在该模板下被跳过
 
-API 入参 `template` 字段固定为 `"magazine"`（向后兼容 enum 名；前端无模板选择器，由 worker 自动注入）。
+API 入参 `template` 字段固定为 `"magazine"`（向后兼容 enum 名，由 worker 自动注入）。
 
 设计 token 在 `packages/remotion-video/src/theme.ts`，Scene 实现在 `packages/remotion-video/src/scenes/*`，LLM 分镜 prompt 在 `packages/llm/src/prompt.ts`。
 

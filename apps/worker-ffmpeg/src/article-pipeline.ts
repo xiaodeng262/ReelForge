@@ -128,6 +128,7 @@ export async function runArticlePipeline(job: Job<ArticleJobPayload>): Promise<A
     const plan = await generateArticleVideoPlan(getLLM(), {
       articleText: article.text,
       title: article.title,
+      customPrompt: payload.customPrompt,
       template: payload.template ?? "teach",
       maxSeconds: payload.maxSeconds ?? 90
     });
@@ -355,21 +356,51 @@ async function synthSceneAudio(
   await concatAudio(audioPaths, path.join(workDir, "voice.mp3"));
   timings.tts = Date.now() - ttsStart;
   endStage(log, "语音合成", ttsStart, { audioSegments: audioPaths.length });
-  return durations.map((duration, index) =>
-    Math.max(duration, estimateNarrationDuration(plan.scenes[index]!.narration))
-  );
+  // 直接返回真实 TTS 时长：Remotion / 字幕都以这个为节拍，避免和实际口播错位。
+  // 之前用 Math.max(real, estimate) 兜底"最小可读"会让画面/字幕比口播长。
+  return durations;
 }
 
+/**
+ * 烧录字幕走的兜底路径（仅在 inlineSubtitle=false 时使用）。
+ * 同 topic-pipeline：按句切，按字符占比分配 scene 内时长，避免整段贴一条。
+ */
 function sceneCues(plan: ArticleVideoPlan, durations: number[]): SubtitleCue[] {
+  const cues: SubtitleCue[] = [];
   let cursor = 0;
-  return plan.scenes.map((scene, index) => {
-    const duration = durations[index] ?? estimateNarrationDuration(scene.narration);
-    const cue = {
-      start: cursor,
-      end: cursor + duration,
-      text: scene.narration
-    };
-    cursor += duration;
-    return cue;
-  });
+  for (let i = 0; i < plan.scenes.length; i++) {
+    const scene = plan.scenes[i]!;
+    const duration = durations[i] ?? estimateNarrationDuration(scene.narration);
+    const sceneEnd = cursor + duration;
+    const sentences = splitNarrationSentences(scene.narration);
+    if (sentences.length === 0 || duration <= 0) {
+      cursor = sceneEnd;
+      continue;
+    }
+    const lengths = sentences.map(charLen);
+    const totalChars = lengths.reduce((sum, n) => sum + n, 0) || 1;
+    let segCursor = cursor;
+    for (let j = 0; j < sentences.length; j++) {
+      const isLast = j === sentences.length - 1;
+      const ratio = lengths[j]! / totalChars;
+      const segEnd = isLast ? sceneEnd : Math.min(segCursor + duration * ratio, sceneEnd);
+      if (segEnd > segCursor) {
+        cues.push({ start: segCursor, end: segEnd, text: sentences[j]! });
+      }
+      segCursor = segEnd;
+    }
+    cursor = sceneEnd;
+  }
+  return cues;
+}
+
+function splitNarrationSentences(text: string): string[] {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed) return [];
+  const re = /[^。！？.!?\n]+[。！？.!?]?/g;
+  return (trimmed.match(re) ?? [trimmed]).map((s) => s.trim()).filter(Boolean);
+}
+
+function charLen(text: string): number {
+  return Array.from(text).length;
 }

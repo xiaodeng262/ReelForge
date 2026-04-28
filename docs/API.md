@@ -69,7 +69,7 @@ curl -H "Authorization: Bearer dev-key" http://localhost:3005/v1/tts/voices
 | `INVALID_API_KEY` | 401 | API Key 不存在、已撤销或缺少租户信息 |
 | `QUOTA_EXHAUSTED` | 403 | 配额耗尽，预留 |
 | `INVALID_INPUT` | 400/404 | 参数错误、资源不存在等 |
-| `ARTICLE_TOO_LONG` | 400 | 文章过长，预留 |
+| `ARTICLE_TOO_LONG` | 400 | 文章正文超过处理上限 |
 | `JOB_BUSY` | 409 | 正在处理的任务不能删除 |
 | `MATERIAL_IN_USE` | 409 | 素材被进行中的任务引用，预留 |
 | `BGM_PROTECTED` | 403 | 尝试删除系统预置 BGM |
@@ -88,8 +88,10 @@ curl -H "Authorization: Bearer dev-key" http://localhost:3005/v1/tts/voices
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `POST` | `/v1/jobs/assets` | 上传素材并按顺序拼接成片 |
-| `POST` | `/v1/jobs/topic` | 输入主题，服务端生成脚本、取素材并合成视频 |
+| `POST` | `/v1/jobs/topic` | 输入主题，或输入主题 + 已确认脚本，取素材并合成视频 |
 | `POST` | `/v1/jobs/article` | 输入文章正文或公众号链接，用 Folio 模板生成 Remotion 知识视频 |
+| `POST` | `/v1/articles/script-preview` | 输入文章正文或公众号链接，同步生成三段脚本预览 |
+| `POST` | `/v1/articles/custom-script-preview` | 用用户提示词作为主要创作指令，同步生成三段脚本预览 |
 | `GET` | `/v1/jobs/:id` | 查询任务状态 |
 | `DELETE` | `/v1/jobs/:id` | 删除任务与相关存储对象 |
 | `GET` | `/v1/tts/voices` | 获取 TTS 音色目录 |
@@ -100,6 +102,7 @@ curl -H "Authorization: Bearer dev-key" http://localhost:3005/v1/tts/voices
 | `DELETE` | `/v1/materials/:id` | 删除素材 |
 | `GET` | `/v1/bgm/categories` | 列出 BGM 分类 |
 | `GET` | `/v1/bgm` | 列出 BGM |
+| `GET` | `/v1/bgm/:id/preview` | 获取 BGM 试听 URL |
 | `POST` | `/v1/bgm` | 上传自定义 BGM |
 | `DELETE` | `/v1/bgm/:id` | 删除 BGM |
 | `POST` | `/v1/wechat/article/extract` | 同步提取公众号文章标题、纯文本与富文本 |
@@ -139,6 +142,24 @@ type BgmCfg = {
 
 `/v1/jobs/assets` 没有文案来源，`audio.enabled` 必须为 `false` 或不传。
 BGM 默认音量：assets/topic 为 `0.15`，article 为 `0.12`。
+
+### 自定义 LLM 指令
+
+`/v1/jobs/topic`、`/v1/jobs/article`、`/v1/articles/script-preview` 都支持：
+
+```ts
+customPrompt?: string;
+```
+
+约定：
+
+- 用途：作为附加用户指令影响脚本风格、口吻、人设、节奏、句式偏好、卖点排序和术语取舍。
+- 上限：服务端会 trim、移除常见控制字符，并截断到 500 字；超长不报错。
+- 空字符串或全空白视同未传。
+- 安全：服务端用 `<<USER_INSTRUCTION>>` 包裹后追加到 user prompt，并明确要求它不能覆盖系统硬约束、输出 schema、安全规则、事实约束和时长预算。
+- `script-preview` 与 `jobs/article` 使用同一套注入函数，保证 `customPrompt` 的拼装位置和方式一致。
+
+如果产品需要“完全按用户提示词生成”，不要使用上述附加指令语义，改用 `/v1/articles/custom-script-preview`。
 
 ### Webhook
 
@@ -246,13 +267,15 @@ curl -X POST http://localhost:3005/v1/jobs/assets \
 
 ### POST /v1/jobs/topic
 
-输入一个主题，服务端调用 LLM 生成脚本，按场景关键词从 Pexels 取素材，可选 TTS、字幕与 BGM，最后由 FFmpeg 合成。
+输入一个主题，服务端调用 LLM 生成脚本；也可以传入调用方已确认过的 `script`，此时 worker 会跳过脚本生成并直接用该文案做 TTS / 字幕。素材仍由 worker 按最终文案规划并从 Pexels 获取，可选叠加 TTS、字幕与 BGM，最后由 FFmpeg 合成。
 
 请求体：
 
 ```json
 {
   "subject": "AI 如何改变短视频生产",
+  "script": "AI 正在重写短视频生产。\n\n过去一条片子要选题、写稿、找素材、剪辑。现在，AI 把这些环节压缩到同一个工作台里。\n\n真正稀缺的，不再是操作速度，而是判断力。",
+  "customPrompt": "请用幽默风格，多用反问。",
   "maxSeconds": 60,
   "resolution": "1080p",
   "orientation": "portrait",
@@ -273,6 +296,8 @@ curl -X POST http://localhost:3005/v1/jobs/assets \
 | 字段 | 类型 | 必填 | 默认 | 说明 |
 |------|------|------|------|------|
 | `subject` | string | 是 | - | 1-200 字符 |
+| `script` | string | 否 | - | 可选的最终视频文案，10-5000 字符，可含换行；服务端会归一化换行并 trim，空字符串或全空白视为未传。传入后跳过 topic 脚本生成，TTS / 字幕使用该文案 |
+| `customPrompt` | string | 否 | - | 用户自定义 LLM 指令，服务端清理并截断到 500 字；仅在需要 LLM 生成 topic 脚本时影响文案风格 |
 | `maxSeconds` | integer | 否 | 60 | 正整数，最大 180 |
 | `resolution` | enum | 否 | `1080p` | `480p/720p/1080p`，当前 topic worker 固定输出 720p，字段暂未实际影响画布 |
 | `orientation` | enum | 否 | `portrait` | `landscape/portrait` |
@@ -280,7 +305,130 @@ curl -X POST http://localhost:3005/v1/jobs/assets \
 | `subtitle` | object | 否 | 开启 | 字幕配置，worker 默认 `enabled=true` |
 | `bgm` | object | 否 | 关闭 | BGM 配置 |
 
+说明：
+
+- `subject` 始终必填。即使传入 `script`，worker 仍会用 `subject + script` 提取 Pexels 检索词；提取失败时回退到 `subject`。
+- `script` 是完整旁白文案，不是分镜结构。传入 `script` 后 worker 不会再用 `customPrompt` 改写这段文案，素材数量仍按文案时长估算。
+
 响应 `202` 同 `/v1/jobs/assets`。
+
+### POST /v1/articles/script-preview
+
+输入文章正文或公众号链接，同步生成 `intro` / `body` / `outro` 三段用户可编辑脚本。不创建任务、不渲染视频。
+
+请求体二选一：
+
+- `text`: 文章正文，1-20000 字符。
+- `articleUrl`: 公众号文章链接，仅支持 `mp.weixin.qq.com` / `weixin.qq.com`。
+- `text` 与 `articleUrl` 必须且只能传一个。
+
+示例：
+
+```json
+{
+  "text": "文章正文……",
+  "title": "可选标题",
+  "customPrompt": "请用幽默风格，多用反问。",
+  "maxSeconds": 90,
+  "orientation": "landscape"
+}
+```
+
+字段约束：
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `text` | string | 条件必填 | - | 文章正文，1-20000 字符；会清理 `\r`、连续空格和超过 2 个的连续空行 |
+| `articleUrl` | string | 条件必填 | - | 公众号文章 URL，仅支持 `mp.weixin.qq.com` / `weixin.qq.com` |
+| `title` | string | 否 | - | 1-120 字符；传 `articleUrl` 且不传 `title` 时使用提取到的文章标题 |
+| `customPrompt` | string | 否 | - | 用户自定义 LLM 指令，服务端清理并截断到 500 字；影响脚本预览风格但不覆盖三段式结构、敏感引流剔除和时长上限 |
+| `maxSeconds` | integer | 否 | 90 | 正整数，最大 300；用于限制脚本预览总时长 |
+| `orientation` | enum | 否 | `landscape` | `landscape/portrait`；当前仅校验并保留，预览生成逻辑暂不使用 |
+
+响应 `200`：
+
+```json
+{
+  "segments": [
+    { "type": "intro", "text": "开场脚本" },
+    { "type": "body", "text": "正文脚本" },
+    { "type": "outro", "text": "收尾脚本" }
+  ],
+  "removed": [
+    { "reason": "sensitive_cta", "text": "被移除的话术" }
+  ],
+  "suggestedTitle": "建议标题",
+  "suggestedTopic": "建议话题"
+}
+```
+
+响应字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `segments` | array | 脚本段落。当前 prompt 要求按 `intro`、`body`、`outro` 返回三段 |
+| `segments[].type` | enum | `intro/body/outro` |
+| `segments[].text` | string | 可编辑旁白文案 |
+| `removed` | array | 被移除的原文片段，例如不安全或营销 CTA；无移除内容时为空数组 |
+| `suggestedTitle` | string | 可选，建议视频标题，最长 120 字符 |
+| `suggestedTopic` | string | 可选，建议话题/标签，最长 30 字符 |
+
+常见错误：
+
+- `400 INVALID_INPUT`: 入参不合法、`text` / `articleUrl` 同传或都不传、正文清理后为空。
+- `400 ARTICLE_TOO_LONG`: 正文清理后超过 20000 字。
+- `customPrompt` 超过 500 字、为空白或包含控制字符时不会报错；服务端会按通用规则清理。
+- `500 INTERNAL`: 传 `articleUrl` 但未配置公众号提取服务。
+- `502 WECHAT_EXTRACT_FAILED`: 公众号文章提取失败。
+- `502 SCRIPT_GEN_FAILED`: LLM 脚本预览生成或 JSON 解析失败。
+
+### POST /v1/articles/custom-script-preview
+
+输入文章正文或公众号链接，用 `customPrompt` 作为主要创作指令生成 `intro` / `body` / `outro` 三段脚本预览。该接口不套用 ReelForge 默认文章改写风格，不创建任务、不渲染视频。
+
+请求体二选一：
+
+- `text`: 文章正文或生成依据，1-20000 字符。
+- `articleUrl`: 公众号文章链接，仅支持 `mp.weixin.qq.com` / `weixin.qq.com`。
+- `text` 与 `articleUrl` 必须且只能传一个。
+
+示例：
+
+```json
+{
+  "text": "程序员加班",
+  "customPrompt": "用幽默搞笑的风格生成一段视频文案",
+  "maxSeconds": 60,
+  "orientation": "portrait"
+}
+```
+
+字段约束：
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `text` | string | 条件必填 | - | 文章正文或生成依据，1-20000 字符；会清理 `\r`、连续空格和超过 2 个的连续空行 |
+| `articleUrl` | string | 条件必填 | - | 公众号文章 URL，仅支持 `mp.weixin.qq.com` / `weixin.qq.com` |
+| `title` | string | 否 | - | 1-120 字符；传 `articleUrl` 且不传 `title` 时使用提取到的文章标题 |
+| `customPrompt` | string | 是 | - | 用户主要创作指令，服务端清理并截断到 500 字；空字符串或全空白返回 `400 INVALID_INPUT` |
+| `maxSeconds` | integer | 否 | 90 | 正整数，最大 300；用于限制脚本预览总时长 |
+| `orientation` | enum | 否 | `landscape` | `landscape/portrait`；当前仅校验并保留，预览生成逻辑暂不使用 |
+
+行为说明：
+
+- `customPrompt` 会替代 ReelForge 默认创意/风格提示词，成为主要写作要求。
+- 服务端仍保留最小硬约束：严格 JSON、三段式结构、事实不编造、敏感/垃圾引流剔除和 `maxSeconds` 时长预算。
+- 如果 `customPrompt` 要求忽略 schema、只输出纯文本或覆盖安全规则，服务端硬约束优先。
+
+响应 `200` 与 `/v1/articles/script-preview` 相同。
+
+常见错误：
+
+- `400 INVALID_INPUT`: 入参不合法、`customPrompt` 为空、`text` / `articleUrl` 同传或都不传、正文清理后为空。
+- `400 ARTICLE_TOO_LONG`: 正文清理后超过 20000 字。
+- `500 INTERNAL`: 传 `articleUrl` 但未配置公众号提取服务。
+- `502 WECHAT_EXTRACT_FAILED`: 公众号文章提取失败。
+- `502 SCRIPT_GEN_FAILED`: LLM 脚本预览生成或 JSON 解析失败。
 
 ### POST /v1/jobs/article
 
@@ -297,6 +445,7 @@ curl -X POST http://localhost:3005/v1/jobs/assets \
 {
   "articleUrl": "https://mp.weixin.qq.com/s/xxxx",
   "title": "文章标题",
+  "customPrompt": "请用幽默风格，多用反问。",
   "maxSeconds": 90,
   "resolution": "1080p",
   "orientation": "portrait",
@@ -317,6 +466,7 @@ curl -X POST http://localhost:3005/v1/jobs/assets \
 | `text` | string | 条件必填 | - | 与 `articleUrl` 必须且只能传一个 |
 | `articleUrl` | string | 条件必填 | - | 公众号文章 URL |
 | `title` | string | 否 | - | 1-120 字符 |
+| `customPrompt` | string | 否 | - | 用户自定义 LLM 指令，服务端清理并截断到 500 字；与 `/v1/articles/script-preview` 使用相同注入方式 |
 | `maxSeconds` | integer | 否 | 90 | 正整数，最大 300。注意：当前 LLM 输出的 narration 总时长会超出该上限，仅用于 prompt 端的软约束 |
 | `resolution` | enum | 否 | `1080p` | `480p/720p/1080p` |
 | `orientation` | enum | 否 | `portrait` | `landscape/portrait`。Folio 在两种方向有不同布局（竖屏 cluster center / 横屏左右分栏） |
@@ -628,6 +778,34 @@ Query：
   "total": 1
 }
 ```
+
+系统默认曲目会在首次访问 BGM 接口时自动写入 BGM 库。前端可以直接展示列表里的 `id/name/category/durationSec`，点击试听时再调用预览接口获取临时 URL。
+
+当前内置系统曲目：
+
+| id | name | category | 说明 |
+|------|------|------|------|
+| `bgm_system_chill_loopable` | `Chill Loopable` | `lofi` | 默认 Lo-Fi BGM |
+| `bgm_system_optimistic_day_remixed` | `Optimistic Day Remixed` | `corporate` | 轻快/商务 BGM |
+| `bgm_system_city_loop` | `City Loop` | `energetic` | 动感电子 BGM |
+| `bgm_system_determined_pursuit` | `Determined Pursuit` | `cinematic` | 电影感管弦 BGM |
+
+### GET /v1/bgm/:id/preview
+
+获取 BGM 临时试听 URL。前端点击试听按钮时调用，把响应里的 `url` 放进 `<audio>` 播放即可。
+
+响应：
+
+```json
+{
+  "url": "https://example-bucket.s3.example.com/bgm/system/city-loop.mp3?...",
+  "expiresInSec": 604800
+}
+```
+
+常见错误：
+
+- `404 INVALID_INPUT`: BGM 不存在，请刷新列表后重试。
 
 ### POST /v1/bgm
 

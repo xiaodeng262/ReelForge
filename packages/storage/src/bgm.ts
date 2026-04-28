@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { getRedisConnection } from "@reelforge/queue";
 import { AppError, ErrorCode, type BgmItem, type BgmCategory } from "@reelforge/shared";
-import { putObjectFromFile, deleteObject, getPresignedUrl } from "./index.js";
+import { putObjectFromFile, deleteObject, getPresignedUrl, objectExists } from "./index.js";
 
 /**
  * BGM 库数据访问层
@@ -21,6 +23,7 @@ import { putObjectFromFile, deleteObject, getPresignedUrl } from "./index.js";
 const REDIS_BGM_HASH = "reelforge:bgm";
 const REDIS_CATEGORY_INDEX = "reelforge:bgm:"; // + category
 const REDIS_CATEGORIES_HASH = "reelforge:bgm:categories";
+const DEFAULT_SYSTEM_BGM_SCORE = Date.parse("2026-04-28T00:00:00.000Z");
 
 // 默认分类：首次启动时 seed；运维可手动扩展 Redis Hash
 const DEFAULT_CATEGORIES: Record<string, { label: string; labelEn: string }> = {
@@ -31,7 +34,46 @@ const DEFAULT_CATEGORIES: Record<string, { label: string; labelEn: string }> = {
   custom: { label: "自定义", labelEn: "Custom" }
 };
 
-/** 启动时调用一次：确保默认分类存在（已存在则不覆盖） */
+const DEFAULT_SYSTEM_BGMS = [
+  {
+    id: "bgm_system_chill_loopable",
+    name: "Chill Loopable",
+    file: "bgm/system/chillloopable.mp3",
+    category: "lofi",
+    durationSec: 67.187,
+    mimeType: "audio/mpeg",
+    assetPath: fileURLToPath(new URL("./assets/bgm/chillloopable.mp3", import.meta.url))
+  },
+  {
+    id: "bgm_system_optimistic_day_remixed",
+    name: "Optimistic Day Remixed",
+    file: "bgm/system/optimistic-day-remixed.mp3",
+    category: "corporate",
+    durationSec: 73.927,
+    mimeType: "audio/mpeg",
+    assetPath: fileURLToPath(new URL("./assets/bgm/optimistic-day-remixed.mp3", import.meta.url))
+  },
+  {
+    id: "bgm_system_city_loop",
+    name: "City Loop",
+    file: "bgm/system/city-loop.mp3",
+    category: "energetic",
+    durationSec: 56.425,
+    mimeType: "audio/mpeg",
+    assetPath: fileURLToPath(new URL("./assets/bgm/city-loop.mp3", import.meta.url))
+  },
+  {
+    id: "bgm_system_determined_pursuit",
+    name: "Determined Pursuit",
+    file: "bgm/system/determined-pursuit-loop.mp3",
+    category: "cinematic",
+    durationSec: 108,
+    mimeType: "audio/mpeg",
+    assetPath: fileURLToPath(new URL("./assets/bgm/determined-pursuit-loop.mp3", import.meta.url))
+  }
+] as const;
+
+/** 启动时调用一次：确保默认分类和内置系统 BGM 存在（已存在则不覆盖） */
 export async function seedBgmCategories(): Promise<void> {
   const redis = getRedisConnection();
   for (const [key, meta] of Object.entries(DEFAULT_CATEGORIES)) {
@@ -39,6 +81,35 @@ export async function seedBgmCategories(): Promise<void> {
     if (!existing) {
       await redis.hset(REDIS_CATEGORIES_HASH, key, JSON.stringify(meta));
     }
+  }
+
+  for (const bgm of DEFAULT_SYSTEM_BGMS) {
+    const [existing, assetStat] = await Promise.all([
+      redis.hget(REDIS_BGM_HASH, bgm.id),
+      fs.stat(bgm.assetPath)
+    ]);
+
+    if (!(await objectExists(bgm.file))) {
+      await putObjectFromFile(bgm.file, bgm.assetPath, bgm.mimeType);
+    }
+
+    if (!existing) {
+      const item: BgmItem = {
+        id: bgm.id,
+        name: bgm.name,
+        file: bgm.file,
+        category: bgm.category,
+        size: assetStat.size,
+        durationSec: bgm.durationSec,
+        isSystem: true
+      };
+      await redis.hset(
+        REDIS_BGM_HASH,
+        bgm.id,
+        JSON.stringify({ ...item, _objectKey: bgm.file })
+      );
+    }
+    await redis.zadd(REDIS_CATEGORY_INDEX + bgm.category, DEFAULT_SYSTEM_BGM_SCORE, bgm.id);
   }
 }
 

@@ -9,7 +9,7 @@ import {
 import { type LLMClient, parseScriptJson, enforceMaxDuration } from "./index.js";
 import {
   buildKeywordSystemPrompt,
-  buildKeywordUserPrompt
+  buildKeywordUserPromptFromInput
 } from "./prompt.js";
 
 /**
@@ -39,7 +39,7 @@ export function createClaudeClient(): LLMClient {
         max_tokens: 2000,
         system: buildKeywordSystemPrompt(input, maxSeconds),
         messages: [
-          { role: "user", content: buildKeywordUserPrompt(input.keyword) },
+          { role: "user", content: buildKeywordUserPromptFromInput(input) },
           { role: "assistant", content: "{" }
         ]
       });

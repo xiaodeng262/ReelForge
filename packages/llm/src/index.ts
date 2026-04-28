@@ -8,9 +8,11 @@ import {
   TermsResult,
   TitlesResult,
   TopicsResult,
+  ArticleScriptPreview,
   ArticleVideoPlan,
   estimateNarrationDuration,
   type KeywordScriptInput,
+  type ArticleScriptPreview as ArticleScriptPreviewT,
   type ArticleJobInput,
   type ArticleVideoPlan as ArticleVideoPlanT,
   type TermsInput,
@@ -31,6 +33,10 @@ import {
   buildTitlesUserPrompt,
   buildTopicsPrompt,
   buildTopicsUserPrompt,
+  buildArticleScriptPreviewSystemPrompt,
+  buildArticleScriptPreviewUserPrompt,
+  buildCustomArticleScriptPreviewSystemPrompt,
+  buildCustomArticleScriptPreviewUserPrompt,
   buildArticleVideoSystemPrompt,
   buildArticleVideoUserPrompt
 } from "./prompt.js";
@@ -273,6 +279,7 @@ export async function generateArticleVideoPlan(
   input: {
     articleText: string;
     title?: string;
+    customPrompt?: string;
     template: ArticleJobInput["template"];
     maxSeconds: number;
   }
@@ -284,7 +291,8 @@ export async function generateArticleVideoPlan(
     }),
     userPrompt: buildArticleVideoUserPrompt({
       title: input.title,
-      articleText: input.articleText
+      articleText: input.articleText,
+      customPrompt: input.customPrompt
     })
   });
   const parsed = parseJsonWithSchema(raw, ArticleVideoPlan);
@@ -292,6 +300,58 @@ export async function generateArticleVideoPlan(
     { ...parsed, template: input.template ?? parsed.template },
     input.maxSeconds
   );
+}
+
+export async function generateArticleScriptPreview(
+  client: LLMClient,
+  input: {
+    articleText: string;
+    title?: string;
+    customPrompt?: string;
+    maxSeconds: number;
+  }
+): Promise<ArticleScriptPreviewT> {
+  const raw = await client.generateJson({
+    systemPrompt: buildArticleScriptPreviewSystemPrompt({
+      maxSeconds: input.maxSeconds
+    }),
+    userPrompt: buildArticleScriptPreviewUserPrompt({
+      title: input.title,
+      articleText: input.articleText,
+      customPrompt: input.customPrompt
+    })
+  });
+  const parsed = parseJsonWithSchema(raw, ArticleScriptPreview);
+  if (!parsed.segments.length) {
+    throw new AppError(ErrorCode.SCRIPT_GEN_FAILED, "LLM did not return script segments", 502);
+  }
+  return parsed;
+}
+
+export async function generateCustomArticleScriptPreview(
+  client: LLMClient,
+  input: {
+    articleText: string;
+    title?: string;
+    customPrompt: string;
+    maxSeconds: number;
+  }
+): Promise<ArticleScriptPreviewT> {
+  const raw = await client.generateJson({
+    systemPrompt: buildCustomArticleScriptPreviewSystemPrompt({
+      maxSeconds: input.maxSeconds
+    }),
+    userPrompt: buildCustomArticleScriptPreviewUserPrompt({
+      title: input.title,
+      articleText: input.articleText,
+      customPrompt: input.customPrompt
+    })
+  });
+  const parsed = parseJsonWithSchema(raw, ArticleScriptPreview);
+  if (!parsed.segments.length) {
+    throw new AppError(ErrorCode.SCRIPT_GEN_FAILED, "LLM did not return script segments", 502);
+  }
+  return parsed;
 }
 
 function enforceArticleBudget(plan: ArticleVideoPlanT, maxSeconds: number): ArticleVideoPlanT {

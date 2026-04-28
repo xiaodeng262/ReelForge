@@ -9,7 +9,8 @@ import {
   ErrorCode,
   config,
   type BgmCategoriesResult,
-  type BgmListResult
+  type BgmListResult,
+  type BgmPreviewResult
 } from "@reelforge/shared";
 import {
   listCategories,
@@ -17,13 +18,15 @@ import {
   putBgm,
   deleteBgm,
   categoryExists,
-  seedBgmCategories
+  seedBgmCategories,
+  getBgmPresignedUrl
 } from "@reelforge/storage";
 
 /**
  * /v1/bgm 路由
  *   GET  /v1/bgm/categories
  *   GET  /v1/bgm
+ *   GET  /v1/bgm/:id/preview —— 获取临时试听 URL
  *   POST /v1/bgm           —— 上传自定义 BGM（强制落入 custom 分类）
  *   DELETE /v1/bgm/:id     —— 删除自定义 BGM；系统 BGM 返回 403 BGM_PROTECTED
  *
@@ -94,6 +97,36 @@ export async function bgmRoutes(app: FastifyInstance) {
       }
       const { items, total } = await listBgm({ category, page, pageSize });
       const result: BgmListResult = { items, total };
+      return reply.status(200).send(result);
+    }
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/bgm/:id/preview",
+    {
+      schema: {
+        tags: ["bgm"],
+        summary: "获取 BGM 试听 URL",
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string" } }
+        },
+        response: {
+          200: { $ref: "BgmPreviewResult#" },
+          401: { $ref: "Error#" },
+          404: { $ref: "Error#" }
+        }
+      }
+    },
+    async (req, reply) => {
+      await ensureSeeded();
+      const id = req.params.id;
+      const url = await getBgmPresignedUrl(id);
+      if (!url) {
+        throw new AppError(ErrorCode.INVALID_INPUT, "BGM 不存在，请刷新列表后重试", 404);
+      }
+      const result: BgmPreviewResult = { url, expiresInSec: config.s3.presignExpires };
       return reply.status(200).send(result);
     }
   );

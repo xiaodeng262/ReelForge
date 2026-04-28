@@ -75,6 +75,11 @@ export interface NormalizeOptions {
    */
   trimSec?: number;
   /**
+   * 目标输出时长（秒）：当源视频短于 trimSec 时，末帧定格补齐到该时长。
+   * 用于按口播段落对齐 stock 画面，避免下一段画面提前出现。
+   */
+  padToSec?: number;
+  /**
    * 图片循环模式：非空时把 input 当作静态图片，循环到指定秒数生成视频片段。
    * 等价于给 ffmpeg 加 `-loop 1 -framerate <fps> -t <loopImageSec>`；
    * 图片没有音频流，调用方应保持 silentAudio=true，否则会被静默替换。
@@ -128,7 +133,8 @@ export function getVideoInfo(
  *
  * 可选能力：
  *   - canvas：Mix 分支的竖屏/方屏（RESOLUTION_SPEC 只定义了横屏 720p/1080p）
- *   - trimSec：仅保留前 N 秒，用于将 Pexels 长素材切成 videoClipDuration 片段
+ *   - trimSec：仅保留前 N 秒，用于将 Pexels 长素材切成目标时长片段
+ *   - padToSec：源视频短于目标时长时定格末帧补齐，保持画面/口播段落同步
  *   - silentAudio：true=强制丢弃原音轨用 anullsrc（Mix 流派默认）；否则 ffprobe 探测
  *
  * 音轨兜底逻辑：
@@ -141,12 +147,21 @@ export function getVideoInfo(
 export async function normalize(
   input: string,
   output: string,
-  { resolution, sampleRate = 44100, canvas, trimSec, loopImageSec, silentAudio, onProgress }: NormalizeOptions
+  { resolution, sampleRate = 44100, canvas, trimSec, loopImageSec, silentAudio, onProgress, padToSec }: NormalizeOptions
 ): Promise<void> {
   const spec = canvas ?? RESOLUTION_SPEC[resolution];
   const { width, height, fps } = spec;
   // 图片循环模式：视为无音源、不需要探测，直接用静音音轨
   const isImageLoop = !!(loopImageSec && loopImageSec > 0);
+  const inputInfo = !isImageLoop && padToSec && padToSec > 0
+    ? await getVideoInfo(input).catch(() => null)
+    : null;
+  const effectiveInputSec = inputInfo?.durationSec ?? 0;
+  const targetSec = trimSec && trimSec > 0 ? trimSec : padToSec;
+  const videoPadSec =
+    targetSec && padToSec && padToSec > 0 && effectiveInputSec > 0 && effectiveInputSec < targetSec
+      ? padToSec - effectiveInputSec
+      : 0;
 
   // 决定音轨策略：图片循环强制静音；否则业务指定 > 探测兜底
   let useSilenceSubstitute = isImageLoop || silentAudio === true;
@@ -171,6 +186,9 @@ export async function normalize(
       `fps=${fps}`,
       "setsar=1"
     ];
+    if (videoPadSec > 0) {
+      vf.push(`tpad=stop_mode=clone:stop_duration=${videoPadSec.toFixed(3)}`);
+    }
 
     const outputOpts: string[] = [
       "-c:v", "libx264",
@@ -343,7 +361,8 @@ export async function burnSubtitles(
   output: string,
   onProgress?: FfmpegProgressHandler
 ): Promise<void> {
-  const escaped = subtitlePath.replace(/\\/g, "/").replace(/'/g, "\\'").replace(/:/g, "\\:");
+  const subtitleInput = await prepareBurnInSubtitle(input, subtitlePath);
+  const escaped = subtitleInput.replace(/\\/g, "/").replace(/'/g, "\\'").replace(/:/g, "\\:");
   return new Promise((resolve, reject) => {
     const cmd = ffmpeg(input)
       .videoFilter(`subtitles='${escaped}'`)
@@ -354,6 +373,143 @@ export async function burnSubtitles(
       .on("error", (err) => reject(err))
       .save(output);
   });
+}
+
+/**
+ * SRT 对 CJK 长句的自动折行不稳定；竖屏安全宽度更窄时容易横向溢出。
+ * 烧录前转成 ASS，显式声明画布、边距与换行，保证字幕始终落在安全区内。
+ */
+async function prepareBurnInSubtitle(input: string, subtitlePath: string): Promise<string> {
+  if (path.extname(subtitlePath).toLowerCase() !== ".srt") return subtitlePath;
+
+  const info = await getVideoInfo(input).catch(() => null);
+  if (!info || info.width <= 0 || info.height <= 0) return subtitlePath;
+
+  const srt = await fs.readFile(subtitlePath, "utf-8");
+  const events = parseSrt(srt);
+  if (events.length === 0) return subtitlePath;
+
+  const assPath = path.join(
+    path.dirname(subtitlePath),
+    `${path.basename(subtitlePath, path.extname(subtitlePath))}.ass`
+  );
+  await fs.writeFile(assPath, srtToAss(events, info.width, info.height), "utf-8");
+  return assPath;
+}
+
+interface ParsedSubtitleEvent {
+  start: string;
+  end: string;
+  text: string;
+}
+
+function parseSrt(srt: string): ParsedSubtitleEvent[] {
+  return srt
+    .replace(/\r\n?/g, "\n")
+    .split(/\n{2,}/)
+    .map((block) => {
+      const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+      const timingIndex = lines.findIndex((line) => line.includes("-->"));
+      if (timingIndex === -1) return null;
+
+      const [startRaw, endRaw] = lines[timingIndex]!.split("-->").map((part) => part.trim());
+      const start = startRaw ? srtTimeToAss(startRaw) : null;
+      const end = endRaw ? srtTimeToAss(endRaw.split(/\s+/)[0]!) : null;
+      const text = lines.slice(timingIndex + 1).join("\n").trim();
+      if (!start || !end || !text) return null;
+
+      return { start, end, text };
+    })
+    .filter((event): event is ParsedSubtitleEvent => event !== null);
+}
+
+function srtTimeToAss(time: string): string | null {
+  const match = time.match(/^(\d{2}):(\d{2}):(\d{2}),(\d{1,3})$/);
+  if (!match) return null;
+
+  const [, hh = "0", mm = "00", ss = "00", ms = "0"] = match;
+  const centiseconds = Math.floor(Number(ms.padEnd(3, "0")) / 10);
+  return `${Number(hh)}:${mm}:${ss}.${String(centiseconds).padStart(2, "0")}`;
+}
+
+function srtToAss(events: ParsedSubtitleEvent[], width: number, height: number): string {
+  const isPortrait = height > width;
+  const fontSize = Math.round(Math.max(24, Math.min(width, height) * 0.052));
+  const outline = Math.max(2, Math.round(fontSize * 0.1));
+  const shadow = Math.max(1, Math.round(fontSize * 0.04));
+  const marginH = Math.round(width * 0.08);
+  const marginV = Math.round(height * (isPortrait ? 0.1 : 0.08));
+  const maxColumns = Math.max(18, Math.floor((width - marginH * 2) / (fontSize * 0.5)));
+
+  const dialogue = events
+    .map((event) => {
+      const text = wrapSubtitleText(event.text, maxColumns);
+      return `Dialogue: 0,${event.start},${event.end},Default,,0,0,0,,${text}`;
+    })
+    .join("\n");
+
+  return [
+    "[Script Info]",
+    "ScriptType: v4.00+",
+    `PlayResX: ${width}`,
+    `PlayResY: ${height}`,
+    "ScaledBorderAndShadow: yes",
+    "WrapStyle: 0",
+    "",
+    "[V4+ Styles]",
+    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+    `Style: Default,Arial,${fontSize},&H00FFFFFF,&H000000FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,${outline},${shadow},2,${marginH},${marginH},${marginV},1`,
+    "",
+    "[Events]",
+    "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    dialogue,
+    ""
+  ].join("\n");
+}
+
+function wrapSubtitleText(text: string, maxColumns: number): string {
+  return text
+    .split(/\n+/)
+    .flatMap((line) => wrapLineByColumns(line.trim(), maxColumns))
+    .filter(Boolean)
+    .map(escapeAssText)
+    .join("\\N");
+}
+
+function wrapLineByColumns(line: string, maxColumns: number): string[] {
+  const lines: string[] = [];
+  let current = "";
+
+  for (const char of Array.from(line)) {
+    const next = current + char;
+    if (current && displayColumns(next) > maxColumns) {
+      const breakAt = current.lastIndexOf(" ");
+      if (breakAt > 0) {
+        lines.push(current.slice(0, breakAt).trimEnd());
+        current = `${current.slice(breakAt + 1).trimStart()}${char}`;
+      } else {
+        lines.push(current);
+        current = char;
+      }
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines;
+}
+
+function displayColumns(text: string): number {
+  return Array.from(text).reduce((sum, char) => sum + (isWideChar(char) ? 2 : 1), 0);
+}
+
+function isWideChar(char: string): boolean {
+  return /[\u1100-\u115f\u2329\u232a\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe19\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/u.test(char);
+}
+
+function escapeAssText(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/\{/g, "｛").replace(/\}/g, "｝");
 }
 
 /**

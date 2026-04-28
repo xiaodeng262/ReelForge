@@ -7,10 +7,9 @@
   "scripts": {
     "dev:api": "pnpm --filter @reelforge/api dev",
     "dev:worker-ffmpeg": "pnpm --filter @reelforge/worker-ffmpeg dev",
-    "dev:web": "pnpm --filter @reelforge/web dev",
     "infra:up": "docker compose up -d redis",
     "infra:down": "docker compose down",
-    "dev": "ulimit -n 10240 && concurrently -k -n api,ffmpeg,web -c blue,cyan,white \"pnpm dev:api\" \"pnpm dev:worker-ffmpeg\" \"pnpm dev:web\"",
+    "dev": "ulimit -n 10240 && concurrently -k -n api,ffmpeg -c blue,cyan \"pnpm dev:api\" \"pnpm dev:worker-ffmpeg\"",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build"
   },
