@@ -130,13 +130,47 @@ function buildCues(scenes: RenderArticleScene[], fps: number): SubtitleCue[] {
 }
 
 /**
- * 简单按 [。！？.!?] 切句，保留分隔符附在前一句。
- * 若整段无分隔符则整段一句。
+ * 字幕切分：先按主级标点 [。！？.!?] 切句，分隔符附在前一句。
+ * 若切出来的某一句字数仍大于 MAX_CUE_CHARS（竖屏字号 38 下大约两行可读极限），
+ * 用次级标点 [；;，,] 二次切分，避免一条 cue 一次性塞入 90+ 字（参考用户反馈）。
+ *
+ * MAX_CUE_CHARS 选 26 是按竖屏 1080×1920 / 字号 38 的两行可视容量估算的，
+ * 横屏更宽但字号 32 也差不多，统一用 26 字够用。
  */
+const MAX_CUE_CHARS = 26;
+
 function splitSentences(text: string): string[] {
   const trimmed = (text ?? "").trim();
   if (!trimmed) return [];
-  const re = /[^。！？.!?]+[。！？.!?]?/g;
-  const matches = trimmed.match(re) ?? [trimmed];
-  return matches.map((s) => s.trim()).filter(Boolean);
+  const sentenceRe = /[^。！？.!?]+[。！？.!?]?/g;
+  const sentences = (trimmed.match(sentenceRe) ?? [trimmed])
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // 二级切分：超长句按次级标点（；;，,）拆，每段独立成 cue
+  const out: string[] = [];
+  for (const s of sentences) {
+    if (charLen(s) <= MAX_CUE_CHARS) {
+      out.push(s);
+      continue;
+    }
+    const subRe = /[^；;，,]+[；;，,]?/g;
+    const parts = (s.match(subRe) ?? [s]).map((p) => p.trim()).filter(Boolean);
+    // 把相邻短段合并到不超过 MAX_CUE_CHARS，避免切得过碎（"是的，"独占一条）
+    let buf = "";
+    for (const part of parts) {
+      if (charLen(buf) + charLen(part) <= MAX_CUE_CHARS) {
+        buf += part;
+      } else {
+        if (buf) out.push(buf);
+        buf = part;
+      }
+    }
+    if (buf) out.push(buf);
+  }
+  return out;
+}
+
+function charLen(s: string): number {
+  return Array.from(s).length;
 }

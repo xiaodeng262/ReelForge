@@ -183,6 +183,8 @@ export async function runArticlePipeline(job: Job<ArticleJobPayload>): Promise<A
     const voicePath = path.join(workDir, "voice.mp3");
     if (audioEnabled) {
       const muxStart = beginStage(log, "语音合轨");
+      // Cover/Outro 是渲染端的叠加层，不占独立时段，TTS 直接从 frame 0 对齐 hook narration，
+      // 不再 pad 静音。封面期间观众看到的是 plan.title 视觉、听到的是开场白。
       const withVoicePath = path.join(workDir, "with-voice.mp4");
       await muxVideoAudio(
         currentVideoPath,
@@ -299,6 +301,7 @@ function attenuateAudio(input: string, output: string, volume: number): Promise<
       .save(output);
   });
 }
+
 
 async function resolveArticle(payload: ArticleJobPayload): Promise<{ title?: string; text: string }> {
   if (payload.text) {

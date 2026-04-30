@@ -10,7 +10,6 @@ import {
   runWithContext
 } from "@reelforge/shared";
 import { assetsRoutes } from "./routes/assets.js";
-import { mixRoutes } from "./routes/mix.js";
 import { jobsRoutes } from "./routes/jobs.js";
 import { topicRoutes } from "./routes/topic.js";
 import { articleRoutes } from "./routes/article.js";
@@ -222,7 +221,6 @@ app.get(
 );
 
 await app.register(assetsRoutes, { prefix: "/v1" });
-await app.register(mixRoutes, { prefix: "/v1" });
 await app.register(topicRoutes, { prefix: "/v1" });
 await app.register(articleRoutes, { prefix: "/v1" });
 await app.register(jobsRoutes, { prefix: "/v1" });

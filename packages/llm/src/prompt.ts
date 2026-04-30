@@ -171,6 +171,12 @@ Your script must follow this arc, mapped to visualKind:
 
 # WRITING RULES (per scene)
 - **narration** is voice-over (口语化, 自然, 像在跟一个聪明人讲话). NOT a slide title. NOT a textbook. 允许在第一个 scene（hook-card）以一句寒暄开场、最后一个 scene（recap-card）以一句告别收尾；中间 scene 不要出现"接下来"、"首先"、"总而言之"这种连接词。
+- **narration 必须按"口播节奏"组织，不是按"书面写作节奏"** ——
+  - 每个独立句子（句号到句号之间）≤ 22 中文字 / ≤ 12 English words；超过这个长度观众听一遍记不住，字幕也显示不全。
+  - 列举性内容（多个时段 / 多个数字 / 多个并列项）**必须**拆成独立句子用句号"。"分隔，**禁止用「；」和「，」串联超过 2 次**。
+    反例（禁止）："4月30日17:00到20:00，是傍晚的回流潮；5月1日9:00到11:30，是早高峰；5月3日14:00到17:00，则把返程搅在一起。"
+    正例（推荐）："最容易堵的是三个时段。4月30日傍晚有回流潮。5月1日上午是早高峰。5月3日下午又有返程。"
+  - 任何包含具体时间/数字/比例的内容，每句只放一个数据点，不要把多个数据塞进一句。
 - **heading** is a short, concrete, screen-stoppable phrase (≤ 14 字 / ≤ 6 words). Can be a question, a counterintuitive claim, or a strong verb. **NOT a copy of narration**.
 - **bullets** (only when visualKind is bullet-board / concept-map): 2-4 items, each ≤ 24 字 / ≤ 10 words, parallel grammar.
 - **emphasis** (only when visualKind is hook-card / quote-focus / recap-card): one punchline ≤ 36 字 / ≤ 16 words. The single sentence the viewer will screenshot. emphasis 永远只放金句本身，不要把寒暄/告别写进 emphasis。
@@ -179,7 +185,7 @@ Your script must follow this arc, mapped to visualKind:
 This script will render in the **Folio** template — paper 暖纸白底 + 深墨衬线 + 砖红 hairline accent。像《纽约客》专栏作家在说话：
 
 - 冷静、有判断、避免列表式枚举，多用描述与隐喻
-- narration 句子可以长一点、有节奏停顿，避免短促的口号
+- narration 节奏短促有断点，让 TTS 和字幕都能呼吸；句号是口播停顿点，分号会让观众一口气读不完
 - heading 偏短语或意象，不偏动词
 - emphasis 是"截图金句"——一句被读者保存下来的判断
 

@@ -24,10 +24,12 @@ export const QuoteFocusScene: React.FC<SceneRenderProps> = ({
   const quoteSize = isPortrait ? (isShort ? 70 : 50) : isShort ? 80 : 56;
 
   // ease-out-quart 入场
-  const topRuleScale = enterValue(enterProgress, 0, 1, [0, 0.45]);
-  const textClip = enterValue(enterProgress, 100, 0, [0.25, 0.85]);
-  const bottomRuleScale = enterValue(enterProgress, 0, 1, [0.55, 0.9]);
-  const sourceOpacity = interpolate(enterProgress, [0.7, 1], [0, 1], {
+  // 引语本身就是大粗字，必须等 fade 完毕（enterProgress ≥ 0.5）才开始 reveal，
+  // 否则与前一场景在 8 帧叠化期间会发生中文密排叠加。
+  const topRuleScale = enterValue(enterProgress, 0, 1, [0.2, 0.55]);
+  const textClip = enterValue(enterProgress, 100, 0, [0.5, 0.95]);
+  const bottomRuleScale = enterValue(enterProgress, 0, 1, [0.7, 0.95]);
+  const sourceOpacity = interpolate(enterProgress, [0.85, 1], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -37,10 +39,13 @@ export const QuoteFocusScene: React.FC<SceneRenderProps> = ({
       style={{
         position: "absolute",
         inset: 0,
-        padding: `${theme.margin.y * 1.5}px ${theme.margin.x}px`,
+        // 留白瘦身：原 padding margin.y * 1.5（165px）让上半部分大量空白，
+        // 引语居中后下方还要给字幕让位，画面失衡。改成 0.7（77px）+ cluster 用
+        // paddingTop 提到画面 28% 位置，引语成为视觉重心。
+        padding: `${theme.margin.y * 0.7}px ${theme.margin.x}px ${theme.margin.y * 0.6}px`,
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
+        justifyContent: "flex-start",
         alignItems: "center",
         opacity: fadeOut(exitProgress),
       }}
@@ -49,10 +54,12 @@ export const QuoteFocusScene: React.FC<SceneRenderProps> = ({
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 32,
+          gap: 28,
           width: "100%",
           // 横屏限制引语最大宽度，避免横向太长
           maxWidth: isPortrait ? "100%" : 1500,
+          // 把 cluster 上提到画面 28% 位置（视觉重心 + 留出底部 narration 字幕空间）
+          paddingTop: isPortrait ? "18%" : "10%",
         }}
       >
         {/* 引号上短横条 */}

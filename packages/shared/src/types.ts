@@ -455,6 +455,11 @@ export const AssetsMeta = z
     // filename 顺序决定拼接顺序
     order: z.array(z.string()).min(1),
     transition: z.enum(["fade", "slide", "none"]).default("none"),
+    // 每个素材的展示/裁剪时长（秒）：filename → seconds
+    //   - 图片：循环展示该秒数（不传则按 worker 默认 3 秒）
+    //   - 视频：裁剪到该秒数（不传则使用素材原时长）
+    //   - 仅出现在 order 里、且 > 0 的条目生效
+    durations: z.record(z.string(), z.number().positive()).optional(),
     // 用户自带字幕：每条关联到某个上传文件，时间基于该文件的相对秒数
     captions: z
       .array(
@@ -518,8 +523,16 @@ export type ArticleJobPayload = ArticleJobInput & { jobId: string; traceCtx?: Tr
 export interface AssetsJobPayload {
   jobId: string;
   traceCtx?: TraceCtx;
-  // S3 objectKey 列表，worker 从 S3 拉
-  files: Array<{ filename: string; objectKey: string; mimeType: string; durationSec?: number }>;
+  // 素材列表：每条要么是自家 S3 对象（objectKey），要么是外部 URL（sourceUrl），二选一。
+  // - objectKey：worker 通过 storage.getObjectToFile 拉取
+  // - sourceUrl：worker 走 HTTP 流式下载，并在下载前再次跑 SSRF 校验（防 DNS rebinding）
+  files: Array<{
+    filename: string;
+    objectKey?: string;
+    sourceUrl?: string;
+    mimeType: string;
+    durationSec?: number;
+  }>;
   meta: AssetsMeta;
 }
 
@@ -621,7 +634,7 @@ export type MaterialListResult = z.infer<typeof MaterialListResult>;
 export const BgmItem = z.object({
   id: z.string(),
   name: z.string(),
-  // 相对路径，可直接回传到 /v1/jobs/mix 的 bgmFile 字段
+  // BGM 在对象存储里的相对路径；前端可拿来作为 BGM 选项标识
   file: z.string(),
   category: z.string(),
   size: z.number().int().nonnegative(),

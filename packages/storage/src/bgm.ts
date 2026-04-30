@@ -209,7 +209,7 @@ export async function putBgm(opts: {
   const item: BgmItem = {
     id,
     name: opts.filename,
-    file, // 相对路径，直接可回传到 /v1/jobs/mix 的 bgmFile
+    file, // 对象存储里的相对路径（暴露给前端做 BGM 选项标识）
     category: forcedCategory,
     size: opts.size,
     durationSec: opts.durationSec ?? 0,

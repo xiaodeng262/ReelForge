@@ -59,6 +59,9 @@ importers:
       fastify:
         specifier: ^5.1.0
         version: 5.8.5
+      undici:
+        specifier: ^7.1.0
+        version: 7.25.0
       uuid:
         specifier: ^11.0.3
         version: 11.1.0
@@ -181,6 +184,9 @@ importers:
       '@remotion/renderer':
         specifier: ^4.0.448
         version: 4.0.451(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)
+      '@remotion/transitions':
+        specifier: ^4.0.448
+        version: 4.0.454(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)
       react:
         specifier: 19.0.0-rc-66855b96-20241106
         version: 19.0.0-rc-66855b96-20241106
@@ -956,6 +962,9 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
+  '@remotion/paths@4.0.454':
+    resolution: {integrity: sha512-tkXwcuW2NNIAEAdR69RCVdS4FY0EmKJfNhQe1KqnsmDysctf58IKCbOpQzlwPqqCP3HYpNZQzqXNCvW/E3b2cA==, tarball: https://registry.npmmirror.com/@remotion/paths/-/paths-4.0.454.tgz}
+
   '@remotion/player@4.0.451':
     resolution: {integrity: sha512-mJSaWHsMQuDXVVVh6UVBySBzzzqeSI+MHUuS+6hk/CrqZwBz1CQnsrtFZcjcnBpY40ao+ZqMA6uTEgs9n34YlQ==, tarball: https://registry.npmmirror.com/@remotion/player/-/player-4.0.451.tgz}
     peerDependencies:
@@ -968,6 +977,12 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
+  '@remotion/shapes@4.0.454':
+    resolution: {integrity: sha512-49XFMerAVGvgy7t7c4qpIQkewzL3P7qBTjIrQGKV+Vj1z+UkdqSD7eJ4xbg7FGSCsjRGmkGkuSVqQpWMkbpSxQ==, tarball: https://registry.npmmirror.com/@remotion/shapes/-/shapes-4.0.454.tgz}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
   '@remotion/streaming@4.0.451':
     resolution: {integrity: sha512-XWPNqLXEeP5+SCU2renegG0tDExwSEY7FXXaymwO2OJ/zzYu6ilAkFMi3T/JfXyNxbVivYdIB295P1GnHGHp4g==, tarball: https://registry.npmmirror.com/@remotion/streaming/-/streaming-4.0.451.tgz}
 
@@ -976,6 +991,12 @@ packages:
 
   '@remotion/studio@4.0.451':
     resolution: {integrity: sha512-u+4Kdoy9Yszftk5aycG+taCGPPOZjk44P5tjgjt4qoEKEc+UpzJEd7phhb3IbPSkJvMDUGMUJw4AgPuY0jpuFg==, tarball: https://registry.npmmirror.com/@remotion/studio/-/studio-4.0.451.tgz}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@remotion/transitions@4.0.454':
+    resolution: {integrity: sha512-EecV7u2oLeYJ1CGHfFH3l8VzIZ/A6TamorR66SMuNmsxClE47FF12crrMJkFRYPgj98PMGqlCv4jn+whrB6GnQ==, tarball: https://registry.npmmirror.com/@remotion/transitions/-/transitions-4.0.454.tgz}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -2191,6 +2212,12 @@ packages:
 
   remotion@4.0.451:
     resolution: {integrity: sha512-uTku1RmytCk50ZtPEoTdmB/4Erb+nH85vT3jkCLWQCaG9qWXxp2XAJ+eL7EfsCUyast2umZm4vdrdKXVxbeDMQ==, tarball: https://registry.npmmirror.com/remotion/-/remotion-4.0.451.tgz}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  remotion@4.0.454:
+    resolution: {integrity: sha512-NGzA7HLBpzRPo1jAyLGXG7AaAdUYHJ18n06GM3nBvFkC5zVZua+2rhezxDTkMJFEMgL54cRQ2Zw/2yd3cWCRbg==, tarball: https://registry.npmmirror.com/remotion/-/remotion-4.0.454.tgz}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -3425,6 +3452,8 @@ snapshots:
       react-dom: 19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106)
       remotion: 4.0.451(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)
 
+  '@remotion/paths@4.0.454': {}
+
   '@remotion/player@4.0.451(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)':
     dependencies:
       react: 19.0.0-rc-66855b96-20241106
@@ -3454,6 +3483,12 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+
+  '@remotion/shapes@4.0.454(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)':
+    dependencies:
+      '@remotion/paths': 4.0.454
+      react: 19.0.0-rc-66855b96-20241106
+      react-dom: 19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106)
 
   '@remotion/streaming@4.0.451': {}
 
@@ -3485,6 +3520,14 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+
+  '@remotion/transitions@4.0.454(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)':
+    dependencies:
+      '@remotion/paths': 4.0.454
+      '@remotion/shapes': 4.0.454(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)
+      react: 19.0.0-rc-66855b96-20241106
+      react-dom: 19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106)
+      remotion: 4.0.454(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)
 
   '@remotion/web-renderer@4.0.451(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)':
     dependencies:
@@ -4894,6 +4937,11 @@ snapshots:
       redis-errors: 1.2.0
 
   remotion@4.0.451(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106):
+    dependencies:
+      react: 19.0.0-rc-66855b96-20241106
+      react-dom: 19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106)
+
+  remotion@4.0.454(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106):
     dependencies:
       react: 19.0.0-rc-66855b96-20241106
       react-dom: 19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106)

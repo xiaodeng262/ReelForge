@@ -11,6 +11,8 @@ export type {
 } from "./types";
 export type { Theme } from "./theme";
 export { getTheme } from "./theme";
+// Cover/Outro 时长常量：worker-ffmpeg 用它给 TTS pad 静音，必须与渲染端保持一致
+export { COVER_SEC, OUTRO_SEC } from "./constants";
 
 const entryPoint = fileURLToPath(new URL("./entry.tsx", import.meta.url));
 

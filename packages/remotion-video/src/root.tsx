@@ -69,12 +69,14 @@ const defaultProps: ArticleCompositionProps = {
 };
 
 const calculateMetadata: CalculateMetadataFunction<ArticleCompositionProps> = ({ props }) => {
-  const durationSec = props.plan.scenes.reduce((sum, scene) => sum + scene.durationSec, 0);
+  // 总时长 = sum(scenes.durationSec)。Cover/Outro 是叠加层（不占独立时段），
+  // 口播从 frame 0 就开始，TTS 不需要 pad 静音。
+  const totalSec = props.plan.scenes.reduce((sum, scene) => sum + scene.durationSec, 0);
   return {
     width: props.width,
     height: props.height,
     fps: props.fps,
-    durationInFrames: Math.max(1, Math.ceil(durationSec * props.fps)),
+    durationInFrames: Math.max(1, Math.ceil(totalSec * props.fps)),
     props,
     defaultCodec: "h264",
     defaultPixelFormat: "yuv420p",

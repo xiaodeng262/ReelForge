@@ -24,8 +24,9 @@ export const BulletBoardScene: React.FC<SceneRenderProps> = ({
     .filter(Boolean)
     .slice(0, 4);
 
-  const headingY = enterValue(enterProgress, 28, 0, [0, 0.55]);
-  const headingClip = enterValue(enterProgress, 100, 0, [0, 0.7]);
+  // heading reveal 延后到 enterProgress ≥ 0.45，让 TransitionSeries fade 期间大字不出现。
+  const headingY = enterValue(enterProgress, 28, 0, [0.45, 0.85]);
+  const headingClip = enterValue(enterProgress, 100, 0, [0.45, 0.95]);
 
   const kickerLabel = `Key Points · ${String(bullets.length).padStart(2, "0")}`;
 

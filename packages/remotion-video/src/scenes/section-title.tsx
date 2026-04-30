@@ -1,187 +1,133 @@
 import React from "react";
 import { interpolate } from "remotion";
 import type { SceneRenderProps } from "../types";
-import { Kicker } from "./chrome";
-import { enterValue, fadeOut } from "../motion";
+import { enterValue, fadeOut, staggerProgress } from "../motion";
 
 /**
- * Section · 章节卡
+ * Section · 章节锚点（Folio）
  *
- * 三种风格：
- *   - Bold Notes  → 巨型数字背后包荧光色块，扫读型章节卡
- *   - Creator Voice → 数字柔和居左，章节像「这一段我想说」
- *   - Folio       → 翻页：上半 mono 巨型章节号 + hairline 横贯 + 下半 serif 章节标题
+ * 设计意图（重写自原"全屏巨型 02/ 翻页卡"）：
+ *   章节切换在视频里不该是 PPT 翻页。本场景被重新定义为"持续叙述里的一段开场标记"——
+ *   像 Loom / Stripe Sessions 长文章节起点：顶部 hairline 进度推进 + mono 章节 caption，
+ *   中段 serif 中等标题 + italic 副标题，左对齐。不再有占据画面 1/3 的巨型砖红数字。
+ *
+ *   章节序号通过六段进度条里"第 N 段亮红"被自然看到，不需要全屏宣告。
+ *
+ * 数据契约不变：仍接收 SceneRenderProps，仍是 visualKind="section-title"，
+ * 不破坏 LLM prompt 与 plan schema。
+ *
+ * 时序：scene 自身的 exit fade 已被 TransitionSeries fade 接管（exitFrames=0），
+ * 这里只关心 enter 阶段的逐元素 stagger 入场。
  */
-export const SectionTitleScene: React.FC<SceneRenderProps> = (props) => {
-  return <FolioSection {...props} />;
-};
-
-/**
- * Folio Section · 翻页
- */
-function FolioSection({
+export const SectionTitleScene: React.FC<SceneRenderProps> = ({
   scene,
   theme,
   index,
+  total,
+  fps,
   enterProgress,
   exitProgress,
+  localFrame,
   orientation,
-}: SceneRenderProps) {
+}) => {
   const isPortrait = orientation === "portrait";
-  const numberSize = isPortrait ? 200 : 220;
-  const headingSize = isPortrait ? 84 : 64;
   const stamp = String(index + 1).padStart(2, "0");
+  const totalStamp = String(total).padStart(2, "0");
 
-  const numberOpacity = enterValue(enterProgress, 0, 1, [0, 0.45]);
-  const numberY = enterValue(enterProgress, 12, 0, [0, 0.45]);
-
-  const ruleScale = enterValue(enterProgress, 0, 1, [0.2, 0.7]);
-
-  const headingClip = enterValue(enterProgress, 100, 0, [0.4, 0.9]);
-  const headingY = enterValue(enterProgress, 8, 0, [0.4, 0.9]);
-
-  const emphasisOpacity = interpolate(enterProgress, [0.7, 1], [0, 1], {
+  // ─── 各 sprite 的入场参数 ───
+  // 顶部 caption：最先出现，做引导（但起点延后到 0.15，避开 fade 帧内的视觉污染）
+  const captionOpacity = enterValue(enterProgress, 0, 1, [0.15, 0.45]);
+  // 进度条 6 段 stagger 推进，第 index+1 段在中段亮红
+  const progressBaseDelay = 8;
+  const progressStagger = 3;
+  // heading：character mask reveal（起点延后到 0.5，确保 fade 期间不可见）
+  const headingClip = enterValue(enterProgress, 100, 0, [0.5, 0.95]);
+  const headingY = enterValue(enterProgress, 8, 0, [0.5, 0.95]);
+  // emphasis：最后落位
+  const emphasisOpacity = interpolate(enterProgress, [0.78, 1], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const emphasisY = enterValue(enterProgress, 6, 0, [0.78, 1]);
 
-  // 横屏：左右分栏（左 caption + 大数字 / 中间竖直 hairline / 右 标题 + emphasis）
-  if (!isPortrait) {
-    return (
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          padding: `${theme.margin.y * 1.0}px ${theme.margin.x}px`,
-          display: "grid",
-          gridTemplateColumns: "0.85fr 1px 1.15fr",
-          gap: 60,
-          alignItems: "center",
-          opacity: fadeOut(exitProgress),
-        }}
-      >
-        {/* 左：caption + 巨型数字 */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Kicker theme={theme} label={`Chapter · ${stamp}`} enterProgress={enterProgress} align="left" />
-          <div
-            style={{
-              fontFamily: theme.fontNumeric,
-              fontVariantNumeric: "tabular-nums",
-              fontSize: numberSize,
-              lineHeight: 0.85,
-              letterSpacing: "-0.05em",
-              fontWeight: 500,
-              color: theme.accent,
-              opacity: numberOpacity,
-              transform: `translateY(${numberY}px)`,
-            }}
-          >
-            {stamp}<span style={{ color: theme.muted, opacity: 0.5 }}>/</span>
-          </div>
-        </div>
-
-        {/* 中央竖直 hairline */}
-        <div
-          style={{
-            width: 1,
-            height: "60%",
-            background: theme.line,
-            transform: `scaleY(${ruleScale})`,
-            transformOrigin: "50% 0%",
-          }}
-        />
-
-        {/* 右：标题 + emphasis */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-          <h2
-            style={{
-              margin: 0,
-              fontFamily: theme.fontDisplay,
-              fontWeight: theme.headingWeight,
-              fontSize: headingSize,
-              lineHeight: 1.04,
-              letterSpacing: theme.headingTracking,
-              color: theme.ink,
-              textWrap: "balance",
-              transform: `translateY(${headingY}px)`,
-              clipPath: `inset(0 ${headingClip}% 0 0)`,
-            }}
-          >
-            {scene.heading}
-          </h2>
-          {scene.emphasis ? (
-            <p
-              style={{
-                margin: 0,
-                fontFamily: theme.fontDisplay,
-                fontStyle: "italic",
-                fontSize: 24,
-                lineHeight: 1.45,
-                color: theme.ink,
-                fontWeight: 400,
-                opacity: emphasisOpacity * 0.85,
-                maxWidth: "92%",
-              }}
-            >
-              {scene.emphasis}
-            </p>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  // 竖屏：垂直堆 cluster
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
-        padding: `${theme.margin.y * 1.4}px ${theme.margin.x}px ${theme.margin.y * 1.3}px`,
+        // 留白瘦身：原 padding margin.y * 1.1（≈121px）让 cluster 拉到画面正中孤悬，
+        // 上下各空 ~600px。改成上 0.5（55px）下 0.6（66px）+ 顶部进度区紧贴顶端 +
+        // 中段 cluster 用 paddingTop 28% 让标题落在画面 30-35% 高度（视觉重心）。
+        padding: `${theme.margin.y * 0.5}px ${theme.margin.x}px ${theme.margin.y * 0.6}px`,
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
-        gap: 36,
+        gap: 32,
         opacity: fadeOut(exitProgress),
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Kicker theme={theme} label={`Chapter · ${stamp}`} enterProgress={enterProgress} align="left" />
+      {/* ─── 顶部：mono caption + 6 段 hairline 进度条 ─── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div
           style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 14,
+            opacity: captionOpacity,
             fontFamily: theme.fontNumeric,
-            fontVariantNumeric: "tabular-nums",
-            fontSize: numberSize,
-            lineHeight: 0.85,
-            letterSpacing: "-0.05em",
+            fontSize: isPortrait ? 15 : 13,
+            color: theme.muted,
+            letterSpacing: "0.28em",
+            textTransform: "uppercase",
             fontWeight: 500,
-            color: theme.accent,
-            opacity: numberOpacity,
-            transform: `translateY(${numberY}px)`,
           }}
         >
-          {stamp}<span style={{ color: theme.muted, opacity: 0.5 }}>/</span>
+          <span style={{ color: theme.accent, fontVariantNumeric: "tabular-nums" }}>
+            Chapter {stamp}
+          </span>
+          <span
+            style={{
+              flex: "0 0 auto",
+              width: 14,
+              height: 1,
+              background: theme.line,
+              alignSelf: "center",
+            }}
+          />
+          <span style={{ color: theme.muted, fontVariantNumeric: "tabular-nums" }}>
+            {stamp} / {totalStamp}
+          </span>
         </div>
+
+        <ProgressRail
+          theme={theme}
+          total={total}
+          activeIndex={index}
+          fps={fps}
+          localFrame={localFrame}
+          baseDelay={progressBaseDelay}
+          stagger={progressStagger}
+        />
       </div>
 
+      {/* ─── 中段：serif 标题 + italic 副标题（左对齐，落在画面 30-35% 视觉重心） ─── */}
       <div
         style={{
-          width: "100%",
-          height: 1,
-          background: theme.line,
-          transform: `scaleX(${ruleScale})`,
-          transformOrigin: "0% 50%",
+          display: "flex",
+          flexDirection: "column",
+          gap: isPortrait ? 24 : 18,
+          maxWidth: isPortrait ? "100%" : "78%",
+          // paddingTop 把 cluster 推到画面 30-35% 高度（视觉重心），不再孤悬正中
+          paddingTop: isPortrait ? "18%" : "10%",
         }}
-      />
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      >
         <h2
           style={{
             margin: 0,
             fontFamily: theme.fontDisplay,
             fontWeight: theme.headingWeight,
-            fontSize: headingSize,
-            lineHeight: 1.0,
+            // 收掉一档：portrait 76 / landscape 56（旧值是 84 / 64，太抢戏）
+            fontSize: isPortrait ? 76 : 56,
+            lineHeight: 1.04,
             letterSpacing: theme.headingTracking,
             color: theme.ink,
             textWrap: "balance",
@@ -195,22 +141,75 @@ function FolioSection({
           <p
             style={{
               margin: 0,
-              marginLeft: 32,
               fontFamily: theme.fontDisplay,
               fontStyle: "italic",
-              fontSize: 30,
-              lineHeight: 1.45,
+              fontSize: isPortrait ? 30 : 24,
+              lineHeight: 1.4,
               color: theme.ink,
               fontWeight: 400,
-              opacity: emphasisOpacity * 0.85,
-              maxWidth: "85%",
+              opacity: emphasisOpacity * 0.86,
+              maxWidth: isPortrait ? "92%" : "100%",
+              transform: `translateY(${emphasisY}px)`,
             }}
           >
             {scene.emphasis}
           </p>
         ) : null}
       </div>
+
+      {/* 底部 "continues" 标记已删除：和顶部 caption 信息重复，反而成为 visual clutter */}
+    </div>
+  );
+};
+
+/**
+ * 6 段 hairline 进度条，第 activeIndex 段亮红色。stagger 推进给入场加节奏感。
+ * 不是 chapter card 的"标语"——是观众扫一眼就知道"在第几段"的视频书签。
+ */
+function ProgressRail({
+  theme,
+  total,
+  activeIndex,
+  fps,
+  localFrame,
+  baseDelay,
+  stagger,
+}: {
+  theme: import("../theme").Theme;
+  total: number;
+  activeIndex: number;
+  fps: number;
+  localFrame: number;
+  baseDelay: number;
+  stagger: number;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      {Array.from({ length: total }).map((_, i) => {
+        // 每段 hairline 按 stagger 顺序"亮起"——已过的章节用 muted 色，当前章节用 accent，
+        // 未到的章节用极淡 line 色。给观众"我在第 N/M 段"的扫读感。
+        const reveal = staggerProgress(localFrame, fps, i, {
+          delay: baseDelay,
+          stagger,
+        });
+        const opacity = interpolate(reveal, [0, 1], [0, 1]);
+        const isActive = i === activeIndex;
+        const isPast = i < activeIndex;
+        const color = isActive ? theme.accent : isPast ? theme.muted : theme.line;
+        return (
+          <span
+            key={i}
+            style={{
+              flex: 1,
+              height: isActive ? 2 : 1,
+              background: color,
+              opacity,
+              transformOrigin: "0% 50%",
+              transform: `scaleX(${reveal})`,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
-

@@ -26,12 +26,14 @@ export const HookCardScene: React.FC<SceneRenderProps> = ({
   const heroSize = isPortrait ? 110 : 88;
 
   // ease-out-quart: 减速着陆
-  const titleClipRight = enterValue(enterProgress, 100, 0, [0, 0.55]);
-  const subOpacity = interpolate(enterProgress, [0.45, 0.85], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const subY = enterValue(enterProgress, 8, 0, [0.45, 0.85]);
-  const captionOpacity = enterValue(enterProgress, 0, 1, [0, 0.35]);
+  // heading reveal 起点延后到 0.45，保证 TransitionSeries fade 期间大字不出现，
+  // 否则前一场景的内容会和本场景标题在 fade 帧内同时显示，中文密排会糊成一片。
+  const titleClipRight = enterValue(enterProgress, 100, 0, [0.45, 0.95]);
+  const subOpacity = interpolate(enterProgress, [0.7, 1], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const subY = enterValue(enterProgress, 8, 0, [0.7, 1]);
+  const captionOpacity = enterValue(enterProgress, 0, 1, [0.15, 0.45]);
   // hairline 绘制（标志手势）
-  const ruleScale = enterValue(enterProgress, 0, 1, [0.1, 0.55]);
+  const ruleScale = enterValue(enterProgress, 0, 1, [0.25, 0.65]);
   const bullets = (scene.bullets ?? []).slice(0, 3);
 
   return (
@@ -68,18 +70,20 @@ export const HookCardScene: React.FC<SceneRenderProps> = ({
         <span>A Folio</span>
       </div>
 
-      {/* 中央 cluster：竖屏垂直堆 / 横屏左右分栏（左 标题, 右 bullets） */}
+      {/* 中央 cluster：往上提到画面 38% 位置（视觉重心），不再孤悬正中。
+          原 top:50% + translateY(-50%) 让标题正中漂浮，上下各空 600px+；
+          改成 top:38%（同样 -50% 偏移参考点）后，标题在视觉重心处，下方留出 narration 字幕空间 */}
       <div
         style={{
           position: "absolute",
           left: theme.margin.x,
           right: theme.margin.x,
-          top: "50%",
+          top: "38%",
           transform: "translateY(-50%)",
           display: isPortrait ? "flex" : "grid",
           flexDirection: "column",
           gridTemplateColumns: isPortrait ? undefined : bullets.length > 0 ? "1.25fr 1fr" : "1fr",
-          gap: isPortrait ? 36 : 64,
+          gap: isPortrait ? 28 : 64,
           alignItems: isPortrait ? "stretch" : "center",
         }}
       >

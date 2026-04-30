@@ -1,5 +1,6 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { createWriteStream } from "node:fs";
 import { request } from "undici";
 import pMap from "p-map";
 import {
@@ -7,6 +8,7 @@ import {
   AppError,
   ErrorCode,
   getResolutionSpec,
+  assertSafeExternalUrl,
   type AssetsJobPayload,
   type SubtitleCue
 } from "@reelforge/shared";
@@ -52,7 +54,20 @@ export async function runAssetsPipeline(job: Job<AssetsJobPayload>) {
       payload.files,
       async (f) => {
         const local = path.join(workDir, f.filename);
-        await getObjectToFile(f.objectKey, local);
+        if (f.objectKey) {
+          await getObjectToFile(f.objectKey, local);
+        } else if (f.sourceUrl) {
+          // 外部 URL：worker 阶段再跑一次 SSRF（DNS 可能在排队期间变化），
+          // 然后流式下载并强制大小上限
+          await assertSafeExternalUrl(f.sourceUrl);
+          await downloadExternalUrlToFile(f.sourceUrl, local);
+        } else {
+          throw new AppError(
+            ErrorCode.INVALID_INPUT,
+            `file ${f.filename} has neither objectKey nor sourceUrl`,
+            400
+          );
+        }
         localMap.set(f.filename, { path: local, file: f });
       },
       { concurrency: 4 }
@@ -197,4 +212,61 @@ function imageDurationSec(file: AssetsJobPayload["files"][number]): number {
   return file.durationSec && file.durationSec > 0
     ? file.durationSec
     : DEFAULT_IMAGE_DURATION_SEC;
+}
+
+// 外部 URL 下载上限，与 multipart 直传保持一致（500MB）
+const EXTERNAL_URL_MAX_BYTES = 500 * 1024 * 1024;
+const EXTERNAL_URL_BODY_TIMEOUT_MS = 60_000;
+const EXTERNAL_URL_HEADERS_TIMEOUT_MS = 15_000;
+
+async function downloadExternalUrlToFile(rawUrl: string, destPath: string): Promise<void> {
+  const resp = await request(rawUrl, {
+    bodyTimeout: EXTERNAL_URL_BODY_TIMEOUT_MS,
+    headersTimeout: EXTERNAL_URL_HEADERS_TIMEOUT_MS
+  });
+  if (resp.statusCode >= 400) {
+    throw new AppError(
+      ErrorCode.INVALID_INPUT,
+      `download failed with status ${resp.statusCode}`,
+      400,
+      { url: rawUrl }
+    );
+  }
+  // Content-Length 兜底（HEAD 已在 API 层过过一次；这里再防超长）
+  const cl = Number(resp.headers["content-length"]);
+  if (Number.isFinite(cl) && cl > EXTERNAL_URL_MAX_BYTES) {
+    throw new AppError(
+      ErrorCode.INVALID_INPUT,
+      `content-length ${cl} exceeds limit ${EXTERNAL_URL_MAX_BYTES}`,
+      400
+    );
+  }
+
+  await fs.mkdir(path.dirname(destPath), { recursive: true });
+  const sink = createWriteStream(destPath);
+  let received = 0;
+  try {
+    for await (const chunk of resp.body) {
+      received += (chunk as Buffer).length;
+      if (received > EXTERNAL_URL_MAX_BYTES) {
+        sink.destroy();
+        throw new AppError(
+          ErrorCode.INVALID_INPUT,
+          `download exceeds ${EXTERNAL_URL_MAX_BYTES} bytes`,
+          400
+        );
+      }
+      if (!sink.write(chunk)) {
+        await new Promise<void>((res) => sink.once("drain", () => res()));
+      }
+    }
+  } catch (err) {
+    sink.destroy();
+    await fs.rm(destPath, { force: true }).catch(() => {});
+    throw err;
+  }
+  await new Promise<void>((resolve, reject) => {
+    sink.end(() => resolve());
+    sink.on("error", reject);
+  });
 }

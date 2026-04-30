@@ -287,3 +287,39 @@ export const keys = {
   /** 最终成片 */
   finalVideo: (jobId: string) => `${jobId}/final.mp4`
 };
+
+// ========== URL → objectKey 解析 ==========
+// 用户传入"自家 S3 预签名 URL"或类似形态，从中抽出 objectKey 供 worker 直接走 S3 取。
+// 业务约束：URL 路径必须以 materials/ 或 uploads/ 开头，否则视为非法。
+// 注意：当前不校验 host，也不校验 materials/{tenantId}/ 是否匹配调用方 apiKey；
+// 这是历史行为（沿用自旧 mix 路由），存在跨租户引用素材的潜在风险，
+// 后续可在调用方做 tenantId 比对。
+export function objectKeyFromInternalUrl(rawUrl: string): string {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new AppError(ErrorCode.INVALID_INPUT, "material url must be a valid URL", 400);
+  }
+  const objectKey = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+  if (!objectKey || !/^(materials|uploads)\//.test(objectKey)) {
+    throw new AppError(
+      ErrorCode.INVALID_INPUT,
+      "material url must point to a ReelForge materials/uploads object",
+      400,
+      { objectKey }
+    );
+  }
+  return objectKey;
+}
+
+/** URL 是否落在自家 S3 命名空间下（仅看 path 前缀，与上面的解析逻辑同源） */
+export function isInternalStorageUrl(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl);
+    const objectKey = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+    return /^(materials|uploads)\//.test(objectKey);
+  } catch {
+    return false;
+  }
+}

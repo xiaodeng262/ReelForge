@@ -42,7 +42,8 @@ export const ConceptMapScene: React.FC<SceneRenderProps> = ({
     ? "matrix"
     : "single";
 
-  const headingY = enterValue(enterProgress, 24, 0, [0, 0.55]);
+  // heading 延后到 fade 后再入场，避免与前一场景的大字叠加。
+  const headingY = enterValue(enterProgress, 24, 0, [0.45, 0.9]);
 
   const kickerLabel = pickKickerLabel(theme.style, variant);
 

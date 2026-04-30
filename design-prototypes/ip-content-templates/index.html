@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DENG·LAB — IP Content Video System / Review Wall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&family=JetBrains+Mono:wght@400..700&family=Instrument+Serif:ital@0;1&family=Noto+Serif+SC:wght@300..700&family=Noto+Sans+SC:wght@300..700&family=Caveat:wght@400..700&family=Cormorant+Garamond:wght@400..600&family=Inconsolata:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0A0A0B;
+    --ink-2: #131316;
+    --ink-3: #1d1d22;
+    --paper: #F5F1EA;
+    --paper-warm: #EBE3D4;
+    --bone: #D8D2C4;
+    --rule: rgba(255,255,255,0.08);
+    --rule-strong: rgba(255,255,255,0.18);
+    --text-mute: rgba(255,255,255,0.45);
+    --text-soft: rgba(255,255,255,0.7);
+
+    --accent-knowledge: #C9A05A;
+    --accent-tech: #00E58A;
+    --accent-news: #E5482E;
+    --accent-personal: #6B8AA7;
+    --accent-recommendation: #FF7A1A;
+
+    --serif: "Fraunces", "Noto Serif SC", "Cormorant Garamond", Georgia, serif;
+    --serif-italic: "Instrument Serif", "Noto Serif SC", Georgia, serif;
+    --sans: "Geist", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif;
+    --sans-cn: "Noto Sans SC", "PingFang SC", -apple-system, sans-serif;
+    --serif-cn: "Noto Serif SC", "Songti SC", serif;
+    --mono: "JetBrains Mono", "Geist Mono", "Inconsolata", ui-monospace, monospace;
+    --hand: "Caveat", cursive;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--ink); color: #fff; font-family: var(--sans); overflow-x: hidden; }
+  body {
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(255,122,26,0.04), transparent 40%),
+      radial-gradient(circle at 80% 30%, rgba(0,229,138,0.03), transparent 40%),
+      radial-gradient(circle at 30% 80%, rgba(229,72,46,0.03), transparent 40%);
+  }
+
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 1000;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+    opacity: 0.035; mix-blend-mode: overlay;
+  }
+
+  /* ===================== TOP BAR / IP SHELL ===================== */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    background: rgba(10,10,11,0.75);
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 32px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-mark {
+    width: 32px; height: 32px;
+    background: var(--paper);
+    color: var(--ink);
+    display: grid; place-items: center;
+    font-family: var(--serif); font-weight: 600; font-size: 18px;
+    font-style: italic;
+    border-radius: 50%;
+    position: relative;
+  }
+  .brand-mark::after {
+    content: ""; position: absolute; inset: -3px;
+    border: 1px dashed rgba(245,241,234,0.25); border-radius: 50%;
+  }
+  .brand-name { font-family: var(--serif); font-weight: 500; letter-spacing: -0.02em; font-size: 15px; }
+  .brand-handle { font-family: var(--mono); font-size: 11px; color: var(--text-mute); margin-left: 6px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .topbar-meta {
+    display: flex; gap: 24px; justify-content: center;
+    font-family: var(--mono); font-size: 11px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 0.18em;
+  }
+  .topbar-meta span b { color: #fff; font-weight: 400; }
+
+  .doc-link {
+    font-family: var(--mono); font-size: 11px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 0.18em;
+    text-decoration: none; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 4px;
+  }
+  .doc-link:hover { color: #fff; border-color: var(--rule-strong); }
+
+  /* ===================== HERO ===================== */
+  .hero {
+    padding: 120px 32px 80px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .hero-grid {
+    max-width: 1480px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: end;
+  }
+  .hero-eyebrow {
+    font-family: var(--mono); font-size: 12px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 0.25em; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .hero-eyebrow::before {
+    content: ""; width: 28px; height: 1px; background: var(--paper);
+  }
+  .hero h1 {
+    font-family: var(--serif); font-weight: 300; letter-spacing: -0.04em;
+    font-size: clamp(54px, 8vw, 110px); line-height: 0.92;
+    font-variation-settings: "SOFT" 50, "WONK" 1;
+  }
+  .hero h1 em {
+    font-family: var(--serif-italic); font-style: italic; font-weight: 400;
+    color: var(--paper-warm);
+  }
+  .hero-sub {
+    font-family: var(--serif-cn); font-weight: 300;
+    font-size: 17px; line-height: 1.7; color: var(--text-soft);
+    max-width: 420px;
+  }
+  .hero-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+    margin-top: 48px;
+    border-top: 1px solid var(--rule); padding-top: 24px;
+  }
+  .stat-num { font-family: var(--serif); font-size: 32px; font-weight: 300; letter-spacing: -0.02em; }
+  .stat-label { font-family: var(--mono); font-size: 10px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.15em; margin-top: 4px; }
+
+  /* ===================== SECTION FRAME ===================== */
+  .format-section {
+    padding: 96px 32px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .format-header {
+    max-width: 1480px; margin: 0 auto 48px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 32px; align-items: end;
+  }
+  .format-index {
+    font-family: var(--mono); font-size: 12px; color: var(--text-mute);
+    letter-spacing: 0.2em; text-transform: uppercase;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .format-index .num {
+    font-family: var(--serif-italic); font-style: italic; font-size: 56px;
+    color: var(--accent); line-height: 1;
+  }
+  .format-title {
+    font-family: var(--serif); font-weight: 300; letter-spacing: -0.03em;
+    font-size: 64px; line-height: 1;
+  }
+  .format-title em { font-family: var(--serif-italic); font-style: italic; color: var(--accent); }
+  .format-sub-cn {
+    font-family: var(--serif-cn); font-size: 16px; color: var(--text-soft);
+    margin-top: 6px; letter-spacing: 0.05em;
+  }
+
+  .format-tags {
+    display: flex; flex-wrap: wrap; gap: 6px; max-width: 360px;
+    justify-content: flex-end;
+  }
+  .tag {
+    font-family: var(--mono); font-size: 10px; padding: 4px 8px;
+    border: 1px solid var(--rule-strong); border-radius: 100px;
+    color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  .shots-row {
+    max-width: 1480px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px;
+  }
+  .shot { display: flex; flex-direction: column; gap: 12px; }
+  .shot-label {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 12px;
+    font-family: var(--mono); font-size: 10px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 0.15em;
+    border-bottom: 1px solid var(--rule); padding-bottom: 8px;
+  }
+  .shot-label .role { color: #fff; }
+  .shot-label .module { color: var(--accent); }
+
+  /* ===================== VIDEO CARD ===================== */
+  .frame-9-16 {
+    aspect-ratio: 9/16;
+    width: 100%;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 80px -40px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04);
+    transition: transform 0.4s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.4s;
+  }
+  .frame-9-16:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 40px 120px -30px rgba(0,0,0,0.95), 0 0 0 1px var(--accent);
+  }
+  .frame-1-1 { aspect-ratio: 1/1 !important; }
+  .frame-16-9 { aspect-ratio: 16/9 !important; }
+
+  .ip-shell-top {
+    position: absolute; top: 16px; left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 10; font-size: 9px; font-family: var(--mono);
+    text-transform: uppercase; letter-spacing: 0.18em;
+  }
+  .ip-shell-mark { display: flex; align-items: center; gap: 6px; }
+  .ip-shell-mark .dot {
+    width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center;
+    font-family: var(--serif-italic); font-style: italic; font-weight: 500;
+    font-size: 9px;
+  }
+  .ip-shell-progress {
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: rgba(255,255,255,0.12); z-index: 11;
+  }
+  .ip-shell-progress::after {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: var(--progress, 33%); background: var(--shell-progress-color, #fff);
+  }
+
+  .ip-shell-subtitle {
+    position: absolute; bottom: 24px; left: 16px; right: 16px;
+    z-index: 10; text-align: center;
+    font-family: var(--sans-cn); font-size: 11px; line-height: 1.4;
+    color: rgba(255,255,255,0.95);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    letter-spacing: 0.04em;
+  }
+  .ip-shell-subtitle.caption {
+    font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(255,255,255,0.7); font-family: var(--mono);
+  }
+  .ip-shell-subtitle.dark { color: rgba(15,15,15,0.85); text-shadow: none; }
+  .ip-shell-subtitle.hidden-mode { display: none; }
+
+  .ip-shell-handle-bottom {
+    position: absolute; bottom: 6px; left: 16px;
+    z-index: 10; font-family: var(--mono); font-size: 8px;
+    color: rgba(255,255,255,0.4); letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .ip-shell-handle-bottom.dark { color: rgba(15,15,15,0.4); }
+
+  /* ===================== KNOWLEDGE - Editorial Cream ===================== */
+  .k-bg { background: var(--paper); color: var(--ink); }
+  .k-bg::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(180deg, rgba(0,0,0,0.04), transparent 30%),
+      repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(0,0,0,0.025) 60px, rgba(0,0,0,0.025) 61px);
+  }
+
+  .k1 .body {
+    position: absolute; inset: 0; padding: 60px 28px; display: flex; flex-direction: column;
+    justify-content: space-between;
+  }
+  .k1 .num {
+    font-family: var(--serif-italic); font-style: italic; font-size: 14px;
+    color: var(--accent-knowledge); letter-spacing: 0.05em;
+  }
+  .k1 .num::after {
+    content: ""; display: block; width: 32px; height: 1px; background: var(--accent-knowledge); margin-top: 8px;
+  }
+  .k1 .title {
+    font-family: var(--serif-cn); font-weight: 300;
+    font-size: 38px; line-height: 1.18; letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .k1 .title em {
+    font-family: var(--serif-italic); font-style: italic; color: var(--accent-knowledge);
+    font-weight: 400;
+  }
+  .k1 .meta {
+    font-family: var(--mono); font-size: 9px; color: rgba(0,0,0,0.4);
+    text-transform: uppercase; letter-spacing: 0.18em;
+    border-top: 1px solid rgba(0,0,0,0.15); padding-top: 8px;
+    display: flex; justify-content: space-between;
+  }
+
+  .k2 .body {
+    position: absolute; inset: 0; padding: 56px 24px 80px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .k2 .lead {
+    font-family: var(--serif-cn); font-weight: 400; font-size: 13px; color: var(--ink);
+    border-left: 2px solid var(--accent-knowledge); padding-left: 10px;
+  }
+  .k2 .map { flex: 1; position: relative; margin-top: 6px; }
+  .k2 .node {
+    position: absolute; padding: 10px 12px;
+    background: #fff; border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 2px; font-family: var(--serif-cn); font-size: 12px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .k2 .node small { display: block; font-family: var(--mono); font-size: 8px; color: var(--accent-knowledge); margin-bottom: 2px; letter-spacing: 0.15em; }
+  .k2 .node.n1 { top: 4%; left: 8%; }
+  .k2 .node.n2 { top: 38%; left: 38%; }
+  .k2 .node.n3 { top: 72%; left: 12%; }
+  .k2 .arrow { position: absolute; font-family: var(--mono); font-size: 18px; color: var(--accent-knowledge); }
+  .k2 .arrow.a1 { top: 22%; left: 50%; transform: rotate(40deg); }
+  .k2 .arrow.a2 { top: 60%; left: 30%; transform: rotate(-130deg); }
+  .k2 .footnote {
+    font-family: var(--serif-italic); font-style: italic; font-size: 11px;
+    color: rgba(0,0,0,0.6); align-self: flex-end;
+  }
+
+  .k3 .body {
+    position: absolute; inset: 0; padding: 60px 32px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; gap: 24px;
+  }
+  .k3 .quote-mark {
+    font-family: var(--serif-italic); font-style: italic; font-size: 100px;
+    color: var(--accent-knowledge); line-height: 0.6; align-self: flex-start;
+  }
+  .k3 .quote {
+    font-family: var(--serif-cn); font-weight: 300; font-size: 24px; line-height: 1.5;
+    letter-spacing: 0.02em;
+  }
+  .k3 .quote em {
+    font-family: var(--serif-italic); font-style: italic; color: var(--accent-knowledge);
+  }
+  .k3 .sig {
+    font-family: var(--hand); font-size: 24px; color: var(--ink);
+    transform: rotate(-3deg); align-self: flex-end;
+  }
+
+  /* ===================== TECH - Terminal ===================== */
+  .t-bg { background: #0d1117; color: #c9d1d9; }
+  .t-bg::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(0,229,138,0.03), rgba(0,229,138,0.03) 1px, transparent 1px, transparent 4px);
+    pointer-events: none;
+  }
+
+  .t1 .body {
+    position: absolute; inset: 0; padding: 40px 22px; display: flex; flex-direction: column;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .t1 .term-bar {
+    display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px 6px 0 0;
+    font-size: 10px; color: #7d8590;
+  }
+  .t1 .term-bar span { width: 8px; height: 8px; border-radius: 50%; }
+  .t1 .dot1 { background: #ff5f56; }
+  .t1 .dot2 { background: #ffbd2e; }
+  .t1 .dot3 { background: #27c93f; }
+  .t1 .term-bar .path { margin-left: auto; }
+  .t1 .term-body {
+    background: #0d1117; border: 1px solid #30363d; border-top: none;
+    padding: 14px 12px; display: flex; flex-direction: column; gap: 6px;
+    font-size: 11px; line-height: 1.5;
+  }
+  .t1 .term-body .prompt { color: var(--accent-tech); }
+  .t1 .term-body .cmt { color: #6e7681; }
+  .t1 .cursor {
+    display: inline-block; width: 7px; height: 14px; background: var(--accent-tech);
+    vertical-align: -2px; animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .t1 .hook-title {
+    font-family: var(--serif-cn); font-size: 26px; font-weight: 500;
+    color: #fff; line-height: 1.25; margin-top: 18px;
+    letter-spacing: -0.01em;
+  }
+  .t1 .hook-title em {
+    color: var(--accent-tech); font-family: var(--mono); font-style: normal;
+    font-size: 22px; font-weight: 600;
+  }
+
+  .t2 .body {
+    position: absolute; inset: 0; padding: 56px 22px 80px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .t2 .label {
+    font-family: var(--mono); font-size: 9px; color: var(--accent-tech);
+    letter-spacing: 0.2em; text-transform: uppercase;
+  }
+  .t2 .label::before { content: "// "; }
+  .t2 .steps { display: flex; flex-direction: column; gap: 8px; }
+  .t2 .step {
+    display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start;
+    padding: 10px 12px; border: 1px solid #30363d; border-radius: 4px;
+    background: rgba(0,229,138,0.03);
+  }
+  .t2 .step .idx {
+    font-family: var(--mono); font-size: 11px; color: var(--accent-tech);
+    border: 1px solid var(--accent-tech); border-radius: 50%;
+    width: 22px; height: 22px; display: grid; place-items: center;
+  }
+  .t2 .step .name {
+    font-family: var(--serif-cn); font-size: 12px; color: #fff; line-height: 1.3;
+  }
+  .t2 .step .api {
+    font-family: var(--mono); font-size: 9px; color: #7d8590; margin-top: 2px;
+  }
+
+  .t3 .body { position: absolute; inset: 0; padding: 56px 22px 80px; }
+  .t3 .label {
+    font-family: var(--mono); font-size: 9px; color: var(--accent-tech);
+    letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 12px;
+  }
+  .t3 .label::before { content: "// "; }
+  .t3 .code {
+    font-family: var(--mono); font-size: 10.5px; line-height: 1.65;
+    background: #161b22; border: 1px solid #30363d; border-radius: 4px;
+    padding: 14px 12px; color: #c9d1d9;
+    white-space: pre; overflow: hidden;
+  }
+  .t3 .code .kw { color: #ff7b72; }
+  .t3 .code .fn { color: #d2a8ff; }
+  .t3 .code .str { color: #a5d6ff; }
+  .t3 .code .cmt { color: #6e7681; }
+  .t3 .code .num { color: #79c0ff; }
+  .t3 .code .hl {
+    background: rgba(0,229,138,0.12); display: block;
+    margin: 0 -12px; padding: 0 12px;
+    border-left: 2px solid var(--accent-tech);
+  }
+  .t3 .takeaway {
+    margin-top: 18px;
+    font-family: var(--serif-cn); font-size: 13px; color: #fff;
+    border-left: 2px solid var(--accent-tech); padding-left: 10px;
+  }
+
+  /* ===================== NEWS - Newsroom ===================== */
+  .n-bg { background: #f8f5f0; color: var(--ink); }
+  .n-bg::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(180deg, transparent, transparent 22px, rgba(0,0,0,0.04) 22px, rgba(0,0,0,0.04) 23px);
+    pointer-events: none;
+  }
+
+  .n1 .body {
+    position: absolute; inset: 0; padding: 50px 22px 80px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .n1 .breaking {
+    background: var(--accent-news); color: #fff;
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.2em; padding: 4px 8px; align-self: flex-start;
+    text-transform: uppercase;
+  }
+  .n1 .meta-row {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 9px; color: rgba(0,0,0,0.55);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    border-bottom: 1px solid rgba(0,0,0,0.2); padding-bottom: 8px;
+  }
+  .n1 .headline {
+    font-family: "Cormorant Garamond", var(--serif-cn), serif;
+    font-weight: 600; font-size: 32px; line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .n1 .deck {
+    font-family: var(--serif-cn); font-size: 12.5px; line-height: 1.55;
+    color: rgba(0,0,0,0.75); border-left: 3px solid var(--accent-news);
+    padding-left: 10px;
+  }
+  .n1 .source-strip {
+    margin-top: auto;
+    font-family: var(--mono); font-size: 8.5px; color: rgba(0,0,0,0.55);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    display: flex; gap: 12px; align-items: center;
+  }
+  .n1 .source-strip b { color: var(--accent-news); font-weight: 600; }
+
+  .n2 .body {
+    position: absolute; inset: 0; padding: 50px 22px 80px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .n2 .label {
+    font-family: var(--mono); font-size: 9px; color: var(--accent-news);
+    letter-spacing: 0.2em; text-transform: uppercase;
+    border-top: 2px solid var(--accent-news); padding-top: 6px;
+  }
+  .n2 .timeline { flex: 1; position: relative; padding-left: 20px; }
+  .n2 .timeline::before {
+    content: ""; position: absolute; left: 6px; top: 6px; bottom: 0;
+    width: 1px; background: rgba(0,0,0,0.25);
+  }
+  .n2 .ev { position: relative; padding-bottom: 14px; }
+  .n2 .ev::before {
+    content: ""; position: absolute; left: -17px; top: 6px;
+    width: 7px; height: 7px; background: var(--ink); border-radius: 50%;
+  }
+  .n2 .ev.now::before { background: var(--accent-news); box-shadow: 0 0 0 4px rgba(229,72,46,0.2); }
+  .n2 .ev .date {
+    font-family: var(--mono); font-size: 9px; color: rgba(0,0,0,0.6);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .n2 .ev .what {
+    font-family: var(--serif-cn); font-size: 13px; line-height: 1.4; color: var(--ink);
+    margin-top: 2px;
+  }
+  .n2 .ev .src {
+    font-family: var(--mono); font-size: 8px; color: rgba(0,0,0,0.5);
+    margin-top: 3px; font-style: italic;
+  }
+
+  .n3 .body {
+    position: absolute; inset: 0; padding: 50px 22px 80px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .n3 .label {
+    font-family: var(--mono); font-size: 9px; color: var(--accent-news);
+    letter-spacing: 0.2em; text-transform: uppercase;
+  }
+  .n3 .verdict-h {
+    font-family: "Cormorant Garamond", var(--serif-cn), serif;
+    font-weight: 500; font-size: 28px; line-height: 1.15;
+    color: var(--ink); letter-spacing: -0.01em;
+  }
+  .n3 .verdict-h em { font-style: italic; color: var(--accent-news); }
+  .n3 .points { display: flex; flex-direction: column; gap: 8px; }
+  .n3 .point {
+    display: grid; grid-template-columns: auto 1fr; gap: 10px;
+    font-family: var(--serif-cn); font-size: 12px; line-height: 1.45;
+    border-bottom: 1px dotted rgba(0,0,0,0.25); padding-bottom: 8px;
+  }
+  .n3 .point .n {
+    font-family: var(--serif-italic); font-style: italic; font-size: 18px;
+    color: var(--accent-news); line-height: 1;
+  }
+  .n3 .sig {
+    margin-top: auto; font-family: var(--hand); font-size: 22px;
+    color: var(--ink); transform: rotate(-2deg);
+    border-top: 1px solid rgba(0,0,0,0.2); padding-top: 8px;
+  }
+  .n3 .sig small {
+    display: block; font-family: var(--mono); font-size: 8px;
+    color: rgba(0,0,0,0.5); letter-spacing: 0.15em; transform: rotate(2deg);
+    margin-top: 2px;
+  }
+
+  /* ===================== PERSONAL - Diary ===================== */
+  .p-bg { background: #f0e9d8; color: var(--ink); }
+  .p-bg::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(90deg, rgba(229,72,46,0.4) 0, rgba(229,72,46,0.4) 1px, transparent 1px) 32px 0/100% 100% no-repeat,
+      repeating-linear-gradient(0deg, transparent, transparent 30px, rgba(107,138,167,0.25) 30px, rgba(107,138,167,0.25) 31px);
+    pointer-events: none;
+  }
+
+  .p1 .body {
+    position: absolute; inset: 0; padding: 50px 22px 80px 50px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .p1 .date-stamp {
+    font-family: var(--hand); font-size: 16px; color: var(--accent-personal);
+    transform: rotate(-2deg); align-self: flex-start;
+  }
+  .p1 .opener {
+    font-family: var(--hand); font-size: 13px; color: rgba(0,0,0,0.6);
+  }
+  .p1 .confession {
+    font-family: var(--serif-cn); font-weight: 400;
+    font-size: 24px; line-height: 1.4; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .p1 .confession u {
+    text-decoration: none;
+    background: linear-gradient(transparent 60%, rgba(229,72,46,0.35) 60%);
+  }
+  .p1 .scribble {
+    margin-top: 8px;
+    font-family: var(--hand); font-size: 18px; color: var(--accent-personal);
+    transform: rotate(-1deg);
+  }
+  .p1 .scribble::before { content: "↳ "; }
+  .p1 .stamp {
+    margin-top: auto; align-self: flex-end;
+    font-family: var(--mono); font-size: 9px; color: var(--accent-news);
+    border: 1.5px solid var(--accent-news); padding: 4px 8px;
+    transform: rotate(6deg); letter-spacing: 0.18em;
+    text-transform: uppercase; opacity: 0.85;
+  }
+
+  .p2 .body {
+    position: absolute; inset: 0; padding: 50px 22px 80px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .p2 .label {
+    font-family: var(--hand); font-size: 18px;
+    color: var(--accent-personal);
+  }
+  .p2 .ba { flex: 1; display: grid; grid-template-rows: 1fr auto 1fr; gap: 10px; }
+  .p2 .panel {
+    border: 1px dashed rgba(0,0,0,0.3); padding: 14px;
+    background: rgba(255,255,255,0.4); border-radius: 2px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .p2 .panel .head {
+    font-family: var(--mono); font-size: 9px; color: rgba(0,0,0,0.55);
+    letter-spacing: 0.2em; text-transform: uppercase;
+  }
+  .p2 .panel.before .head::before { content: "✕  "; color: var(--accent-news); }
+  .p2 .panel.after .head::before { content: "✓  "; color: #2a8c3f; }
+  .p2 .panel .text {
+    font-family: var(--serif-cn); font-size: 12.5px; line-height: 1.45;
+  }
+  .p2 .panel .text em {
+    font-family: var(--hand); font-style: normal; color: var(--accent-personal);
+    font-size: 14px;
+  }
+  .p2 .arrow {
+    text-align: center; font-family: var(--hand); font-size: 22px;
+    color: var(--accent-personal); transform: rotate(-1deg);
+  }
+
+  .p3 .body {
+    position: absolute; inset: 0; padding: 50px 22px 80px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .p3 .pin {
+    align-self: flex-start; transform: rotate(-3deg);
+    background: #fff8d6; border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 2px 4px 8px rgba(0,0,0,0.15);
+    padding: 14px 14px 18px; max-width: 90%;
+  }
+  .p3 .pin h4 {
+    font-family: var(--hand); font-size: 22px; color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .p3 .pin .lessons { display: flex; flex-direction: column; gap: 6px; }
+  .p3 .pin .li {
+    font-family: var(--serif-cn); font-size: 12px; line-height: 1.4;
+    padding-left: 16px; position: relative;
+  }
+  .p3 .pin .li::before {
+    content: ""; position: absolute; left: 0; top: 7px;
+    width: 8px; height: 1px; background: var(--accent-personal);
+  }
+  .p3 .pin .li em {
+    background: linear-gradient(transparent 60%, rgba(201,160,90,0.5) 60%);
+    font-style: normal;
+  }
+  .p3 .closer {
+    margin-top: auto;
+    font-family: var(--hand); font-size: 20px;
+    color: var(--accent-personal); transform: rotate(-1deg);
+    text-align: right;
+  }
+
+  /* ===================== RECOMMENDATION - Window Display ===================== */
+  .r-bg { background: #1a1311; color: #fff; }
+  .r-bg::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 110%, rgba(255,122,26,0.25), transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(255,122,26,0.1), transparent 40%);
+  }
+
+  .r1 .body {
+    position: absolute; inset: 0; padding: 50px 22px 80px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .r1 .label {
+    font-family: var(--mono); font-size: 9px; color: var(--accent-recommendation);
+    letter-spacing: 0.25em; text-transform: uppercase;
+  }
+  .r1 .label::before { content: "✦"; margin-right: 8px; }
+  .r1 .product {
+    flex: 1; border: 1px solid rgba(255,122,26,0.4);
+    background: linear-gradient(145deg, rgba(255,122,26,0.08), rgba(0,0,0,0.4));
+    border-radius: 4px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; gap: 12px;
+    position: relative;
+  }
+  .r1 .product::before {
+    content: ""; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px;
+    border: 1px dashed rgba(255,122,26,0.25);
+  }
+  .r1 .product-mark {
+    width: 80px; height: 80px;
+    background: linear-gradient(145deg, var(--accent-recommendation), #c34a08);
+    border-radius: 16px;
+    display: grid; place-items: center;
+    font-family: var(--serif); font-style: italic; font-size: 36px; font-weight: 500;
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(255,122,26,0.4);
+  }
+  .r1 .product-name {
+    font-family: var(--serif); font-size: 22px; font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  .r1 .product-tag {
+    font-family: var(--mono); font-size: 9px; color: rgba(255,255,255,0.6);
+    letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .r1 .pitch {
+    font-family: var(--serif-cn); font-size: 14px; line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+    border-top: 1px solid rgba(255,255,255,0.15); padding-top: 10px;
+  }
+  .r1 .pitch em {
+    color: var(--accent-recommendation); font-style: normal;
+    font-family: var(--serif-italic);
+  }
+
+  .r2 .body {
+    position: absolute; inset: 0; padding: 50px 18px 80px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .r2 .label {
+    font-family: var(--mono); font-size: 9px; color: var(--accent-recommendation);
+    letter-spacing: 0.2em; text-transform: uppercase;
+    text-align: center;
+  }
+  .r2 .question {
+    font-family: var(--serif-cn); font-size: 16px; text-align: center;
+    color: rgba(255,255,255,0.85);
+  }
+  .r2 .columns { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .r2 .col {
+    border-radius: 4px; padding: 12px 10px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .r2 .col.fit { background: rgba(0,229,138,0.08); border: 1px solid rgba(0,229,138,0.4); }
+  .r2 .col.unfit { background: rgba(229,72,46,0.08); border: 1px solid rgba(229,72,46,0.4); }
+  .r2 .col h5 {
+    font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    text-align: center; padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+  }
+  .r2 .col.fit h5 { color: var(--accent-tech); }
+  .r2 .col.unfit h5 { color: var(--accent-news); }
+  .r2 .col .li {
+    font-family: var(--serif-cn); font-size: 11px; line-height: 1.4;
+    padding-left: 12px; position: relative;
+    color: rgba(255,255,255,0.9);
+  }
+  .r2 .col.fit .li::before { content: "+"; color: var(--accent-tech); position: absolute; left: 0; font-family: var(--mono); font-weight: 700; }
+  .r2 .col.unfit .li::before { content: "−"; color: var(--accent-news); position: absolute; left: 0; font-family: var(--mono); font-weight: 700; }
+
+  .r3 .body {
+    position: absolute; inset: 0; padding: 50px 22px 80px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .r3 .label {
+    font-family: var(--mono); font-size: 9px; color: var(--accent-recommendation);
+    letter-spacing: 0.25em; text-transform: uppercase;
+  }
+  .r3 .label::before { content: "▍"; margin-right: 6px; }
+  .r3 .score {
+    display: flex; align-items: baseline; gap: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 12px;
+  }
+  .r3 .score .n {
+    font-family: var(--serif-italic); font-style: italic;
+    font-size: 84px; font-weight: 400; color: var(--accent-recommendation);
+    line-height: 0.9; letter-spacing: -0.04em;
+  }
+  .r3 .score .denom { font-family: var(--mono); font-size: 14px; color: rgba(255,255,255,0.6); }
+  .r3 .score .stars {
+    margin-left: auto; display: flex; gap: 2px;
+    color: var(--accent-recommendation); font-size: 14px; letter-spacing: 1px;
+  }
+  .r3 .verdict {
+    font-family: var(--serif-cn); font-size: 16px; line-height: 1.5;
+    font-weight: 400;
+  }
+  .r3 .verdict em {
+    font-style: italic; color: var(--accent-recommendation);
+    font-family: var(--serif-italic);
+  }
+  .r3 .caveat {
+    font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,0.5);
+    line-height: 1.5; padding: 8px 10px;
+    border-left: 2px solid var(--accent-news);
+    background: rgba(229,72,46,0.05);
+  }
+  .r3 .sig {
+    margin-top: auto;
+    font-family: var(--hand); font-size: 22px;
+    color: var(--accent-recommendation); align-self: flex-end;
+  }
+
+  /* ===================== ASPECT ===================== */
+  .aspect-section { padding: 96px 32px; }
+  .aspect-grid {
+    max-width: 1480px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; align-items: end;
+  }
+  .aspect-col { display: flex; flex-direction: column; gap: 12px; }
+  .aspect-col .ratio {
+    font-family: var(--serif-italic); font-style: italic; color: var(--accent-recommendation);
+    font-size: 14px; line-height: 1;
+  }
+
+  /* ===================== MATRIX ===================== */
+  .matrix-section { padding: 96px 32px 0; border-bottom: 1px solid var(--rule); }
+  .matrix-wrap { max-width: 1480px; margin: 0 auto; }
+  .matrix {
+    margin-top: 48px;
+    border: 1px solid var(--rule); border-collapse: collapse; width: 100%;
+  }
+  .matrix th, .matrix td {
+    border: 1px solid var(--rule); padding: 14px 16px;
+    text-align: left; font-size: 13px;
+  }
+  .matrix th {
+    font-family: var(--mono); font-size: 10px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 0.18em; font-weight: 400;
+    background: var(--ink-2);
+  }
+  .matrix td { font-family: var(--sans-cn); color: var(--text-soft); }
+  .matrix td:first-child { font-family: var(--mono); color: #fff; font-size: 11px; letter-spacing: 0.1em; }
+  .matrix .tag-mode {
+    display: inline-block; padding: 2px 6px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.15em;
+    text-transform: uppercase; border-radius: 2px;
+  }
+  .matrix .m-full { background: rgba(0,229,138,0.15); color: var(--accent-tech); }
+  .matrix .m-caption { background: rgba(255,122,26,0.15); color: var(--accent-recommendation); }
+  .matrix .m-hidden { background: rgba(255,255,255,0.08); color: var(--text-mute); }
+
+  /* ===================== FOOTER ===================== */
+  footer { padding: 80px 32px 60px; text-align: center; }
+  footer .colophon {
+    font-family: var(--serif-italic); font-style: italic; font-size: 24px;
+    color: var(--text-soft); margin-bottom: 14px;
+    letter-spacing: 0.02em;
+  }
+  footer .meta {
+    font-family: var(--mono); font-size: 10px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 0.25em;
+  }
+
+  /* Section accent assignment */
+  .knowledge { --accent: var(--accent-knowledge); --shell-progress-color: var(--accent-knowledge); }
+  .tech { --accent: var(--accent-tech); --shell-progress-color: var(--accent-tech); }
+  .news { --accent: var(--accent-news); --shell-progress-color: var(--accent-news); }
+  .personal { --accent: var(--accent-personal); --shell-progress-color: var(--accent-personal); }
+  .recommendation { --accent: var(--accent-recommendation); --shell-progress-color: var(--accent-recommendation); }
+
+  @media (max-width: 1100px) {
+    .shots-row, .aspect-grid { grid-template-columns: 1fr 1fr; }
+    .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+  }
+  @media (max-width: 720px) {
+    .shots-row, .aspect-grid { grid-template-columns: 1fr; }
+    .format-header { grid-template-columns: 1fr; }
+    .hero { padding: 80px 20px 60px; }
+    .format-section { padding: 60px 20px; }
+    .format-title { font-size: 44px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">D</div>
+    <div>
+      <span class="brand-name">DENG·LAB</span>
+      <span class="brand-handle">@dengyu_lab</span>
+    </div>
+  </div>
+  <div class="topbar-meta">
+    <span><b>SYSTEM</b> · IP CONTENT VIDEO v0.1</span>
+    <span><b>FORMATS</b> · 5</span>
+    <span><b>ASPECTS</b> · 9:16 · 1:1 · 16:9</span>
+  </div>
+  <a class="doc-link" href="../../docs/IP_CONTENT_VIDEO_SYSTEM.md">docs ↗</a>
+</header>
+
+<section class="hero">
+  <div class="hero-grid">
+    <div>
+      <div class="hero-eyebrow">Director's Cut · Review Wall · 2026</div>
+      <h1>
+        One <em>shell.</em><br>
+        Five formats.<br>
+        <em>Many</em> shots.
+      </h1>
+    </div>
+    <div>
+      <p class="hero-sub">
+        统一的个人 IP 外壳之下，让知识、技术、新闻、个人、推荐五类内容拥有<br>
+        各自的镜头语言。<em style="font-family: var(--serif-italic); color: var(--paper-warm);">不是五套品牌，是一种声音的五种语气。</em>
+      </p>
+      <div class="hero-stats">
+        <div><div class="stat-num">5</div><div class="stat-label">content formats</div></div>
+        <div><div class="stat-num">15+</div><div class="stat-label">scene modules</div></div>
+        <div><div class="stat-num">3</div><div class="stat-label">subtitle modes</div></div>
+        <div><div class="stat-num">9:16</div><div class="stat-label">primary canvas</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- KNOWLEDGE -->
+<section class="format-section knowledge">
+  <div class="format-header">
+    <div class="format-index"><span class="num">01</span> KNOWLEDGE / 知识分享</div>
+    <div>
+      <div class="format-title"><em>Editorial</em> Column</div>
+      <div class="format-sub-cn">概念、机制、误区、一句话带走 ──── 像专栏，不像 PPT</div>
+    </div>
+    <div class="format-tags">
+      <span class="tag">concept</span><span class="tag">mechanism</span>
+      <span class="tag">misconception</span><span class="tag">recap</span>
+    </div>
+  </div>
+
+  <div class="shots-row">
+    <div class="shot">
+      <div class="shot-label"><span class="role">OPEN</span><span></span><span class="module">knowledge-hook</span></div>
+      <div class="frame-9-16 k-bg k1">
+        <div class="ip-shell-progress" style="--progress: 6%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.5);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div>01 · 知识 / KNOWLEDGE</div>
+        </div>
+        <div class="body">
+          <div><div class="num">no. 001</div></div>
+          <div class="title">你以为的<em>"复利"</em>，<br>大多数情况下，<br>其实是一种错觉。</div>
+          <div class="meta"><span>HOOK · 反常识</span><span>00:03 / 00:48</span></div>
+        </div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · hidden</span><span></span>
+        <span style="color: var(--accent-knowledge);">画面承担字幕</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">MIDDLE</span><span></span><span class="module">mechanism-map</span></div>
+      <div class="frame-9-16 k-bg k2">
+        <div class="ip-shell-progress" style="--progress: 48%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.5);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div>01 · 知识 / KNOWLEDGE</div>
+        </div>
+        <div class="body">
+          <div class="lead">真正起作用的不是数字翻倍，<br>而是这三个东西的相互作用：</div>
+          <div class="map">
+            <div class="node n1"><small>01 · INPUT</small>持续投入</div>
+            <div class="node n2"><small>02 · TIME</small>不被打断的时间</div>
+            <div class="node n3"><small>03 · MOAT</small>系统性优势</div>
+            <div class="arrow a1">↘</div>
+            <div class="arrow a2">↙</div>
+          </div>
+          <div class="footnote">— 任何一个掉了，复利就停。</div>
+        </div>
+        <div class="ip-shell-subtitle dark caption">机制 · 三因素</div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-knowledge);">关键词字幕</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">CLOSE</span><span></span><span class="module">recap-note</span></div>
+      <div class="frame-9-16 k-bg k3">
+        <div class="ip-shell-progress" style="--progress: 98%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.5);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div>01 · 知识 / KNOWLEDGE</div>
+        </div>
+        <div class="body">
+          <div class="quote-mark">"</div>
+          <div class="quote">复利不是<em>"翻倍游戏"</em>，<br>是一场关于<em>不被打断</em>的耐心比赛。</div>
+          <div class="sig">— 邓宇</div>
+        </div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · hidden</span><span></span>
+        <span style="color: var(--accent-knowledge);">金句即字幕</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH -->
+<section class="format-section tech">
+  <div class="format-header">
+    <div class="format-index"><span class="num">02</span> TECH / 技术分享</div>
+    <div>
+      <div class="format-title"><em>Terminal</em> Studio</div>
+      <div class="format-sub-cn">代码、流程、接口、取舍 ──── 让观众感觉"这个人真的懂"</div>
+    </div>
+    <div class="format-tags">
+      <span class="tag">workflow</span><span class="tag">architecture</span>
+      <span class="tag">code</span><span class="tag">tradeoff</span>
+    </div>
+  </div>
+
+  <div class="shots-row">
+    <div class="shot">
+      <div class="shot-label"><span class="role">OPEN</span><span></span><span class="module">terminal-hook</span></div>
+      <div class="frame-9-16 t-bg t1">
+        <div class="ip-shell-progress" style="--progress: 6%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-tech); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-tech);">02 · 技术 / TECH</div>
+        </div>
+        <div class="body">
+          <div class="term-bar">
+            <span class="dot1"></span><span class="dot2"></span><span class="dot3"></span>
+            <span class="path">~/reelforge/api</span>
+          </div>
+          <div class="term-body">
+            <div><span class="prompt">$</span> curl -N api/stream</div>
+            <div class="cmt"># 等了 8 秒还没返回</div>
+            <div><span class="prompt">$</span> tail -f logs/api.log<span class="cursor"></span></div>
+          </div>
+          <div class="hook-title">如何用 <em>30 行</em><br>把同步接口<br>改成<em>流式</em>响应？</div>
+        </div>
+        <div class="ip-shell-subtitle caption">流式 · streaming</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-tech);">画面信息密度高</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">MIDDLE</span><span></span><span class="module">workflow-steps</span></div>
+      <div class="frame-9-16 t-bg t2">
+        <div class="ip-shell-progress" style="--progress: 50%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-tech); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-tech);">02 · 技术 / TECH</div>
+        </div>
+        <div class="body">
+          <div class="label">工作流 · 5 steps</div>
+          <div class="steps">
+            <div class="step"><div class="idx">1</div><div><div class="name">客户端打开 SSE 连接</div><div class="api">EventSource('/stream')</div></div></div>
+            <div class="step"><div class="idx">2</div><div><div class="name">服务端切到 chunked 响应</div><div class="api">res.writeHead · text/event-stream</div></div></div>
+            <div class="step"><div class="idx">3</div><div><div class="name">LLM 流式回调推 token</div><div class="api">onToken → res.write</div></div></div>
+            <div class="step"><div class="idx">4</div><div><div class="name">心跳防止中间层断流</div><div class="api">setInterval · 15s · ping</div></div></div>
+            <div class="step"><div class="idx">5</div><div><div class="name">客户端边收边渲染</div><div class="api">React useTransition</div></div></div>
+          </div>
+        </div>
+        <div class="ip-shell-subtitle caption">SSE · 5 步</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-tech);">流程拆解</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">CLOSE</span><span></span><span class="module">implementation-note</span></div>
+      <div class="frame-9-16 t-bg t3">
+        <div class="ip-shell-progress" style="--progress: 96%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-tech); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-tech);">02 · 技术 / TECH</div>
+        </div>
+        <div class="body">
+          <div class="label">关键实现 · 30 lines</div>
+<pre class="code"><span class="kw">app</span>.get(<span class="str">'/stream'</span>, <span class="kw">async</span> (req, res) => {
+  res.writeHead(<span class="num">200</span>, {
+    <span class="str">'Content-Type'</span>: <span class="str">'text/event-stream'</span>,
+    <span class="str">'Cache-Control'</span>: <span class="str">'no-cache'</span>,
+  });
+<span class="hl">  <span class="cmt">// 边推边 flush</span>
+  <span class="kw">for await</span> (<span class="kw">const</span> tok <span class="kw">of</span> llm.<span class="fn">stream</span>()) {
+    res.<span class="fn">write</span>(<span class="str">`data: ${tok}\n\n`</span>);
+  }</span>
+  res.end();
+});</pre>
+          <div class="takeaway">一行 <span style="font-family: var(--mono); color: var(--accent-tech);">res.write</span> 之差，<br>体感从"卡死"变成"边想边说"。</div>
+        </div>
+        <div class="ip-shell-subtitle caption">res.write · streaming</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-tech);">代码主导</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NEWS -->
+<section class="format-section news">
+  <div class="format-header">
+    <div class="format-index"><span class="num">03</span> NEWS / 新闻解读</div>
+    <div>
+      <div class="format-title"><em>Newsroom</em> Brief</div>
+      <div class="format-sub-cn">日期、来源、时间线、判断 ──── 可信感优先</div>
+    </div>
+    <div class="format-tags">
+      <span class="tag">timeline</span><span class="tag">source-quote</span>
+      <span class="tag">stakeholder</span><span class="tag">verdict</span>
+    </div>
+  </div>
+
+  <div class="shots-row">
+    <div class="shot">
+      <div class="shot-label"><span class="role">OPEN</span><span></span><span class="module">breaking-context</span></div>
+      <div class="frame-9-16 n-bg n1">
+        <div class="ip-shell-progress" style="--progress: 8%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.55);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-news);">03 · 新闻 / NEWS</div>
+        </div>
+        <div class="body">
+          <div class="breaking">BREAKING · 快讯</div>
+          <div class="meta-row">
+            <span>2026 · 04 · 28</span>
+            <span>路透 / Reuters</span>
+            <span>AI 行业</span>
+          </div>
+          <h2 class="headline">某头部模型公司宣布<br>放弃 GPU 自研，<br>转向<em>晶圆代工合作</em>。</h2>
+          <p class="deck">内部备忘录：自研 ASIC 项目两年内未达成产能 KPI，<br>团队将在六周内完成转向。</p>
+          <div class="source-strip"><b>● Source ·</b> reuters.com/article/...</div>
+        </div>
+        <div class="ip-shell-subtitle dark caption">来源 · Reuters · 2026.04.28</div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-news);">来源与日期标注</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">MIDDLE</span><span></span><span class="module">timeline</span></div>
+      <div class="frame-9-16 n-bg n2">
+        <div class="ip-shell-progress" style="--progress: 52%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.55);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-news);">03 · 新闻 / NEWS</div>
+        </div>
+        <div class="body">
+          <div class="label">事件时间线 · timeline</div>
+          <div class="timeline">
+            <div class="ev"><div class="date">2024 · Q3</div><div class="what">官宣自研 ASIC，估值飙升 40%</div><div class="src">据公司发布会</div></div>
+            <div class="ev"><div class="date">2025 · Q2</div><div class="what">首次流片良率不及预期，跳票</div><div class="src">据彭博 / 知情人士</div></div>
+            <div class="ev"><div class="date">2026 · Q1</div><div class="what">CFO 离职，研发预算缩减 30%</div><div class="src">据 SEC 文件</div></div>
+            <div class="ev now"><div class="date">今日</div><div class="what">官方确认转向晶圆代工，6 周完成</div><div class="src">据公司内部备忘录</div></div>
+          </div>
+        </div>
+        <div class="ip-shell-subtitle dark caption">两年 · 三次跳票</div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-news);">事件骨架</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">CLOSE</span><span></span><span class="module">editorial-verdict</span></div>
+      <div class="frame-9-16 n-bg n3">
+        <div class="ip-shell-progress" style="--progress: 95%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.55);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-news);">03 · 新闻 / NEWS</div>
+        </div>
+        <div class="body">
+          <div class="label">我的判断 · editorial</div>
+          <h2 class="verdict-h">这<em>不是退步</em>，<br>是把战线收回到<br>能打的地方。</h2>
+          <div class="points">
+            <div class="point"><span class="n">i.</span><span>窗口期已过，继续耗反而失去主业速度。</span></div>
+            <div class="point"><span class="n">ii.</span><span>代工虽贵，能稳定释放下一代模型产能。</span></div>
+            <div class="point"><span class="n">iii.</span><span>真正值得关心的，是六周后研发团队会去哪。</span></div>
+          </div>
+          <div class="sig">— 邓宇 · 据公开信息<small>EDITORIAL · NOT INVESTMENT ADVICE</small></div>
+        </div>
+        <div class="ip-shell-subtitle dark caption">据公开信息</div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-news);">不确定性外显</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PERSONAL -->
+<section class="format-section personal">
+  <div class="format-header">
+    <div class="format-index"><span class="num">04</span> PERSONAL / 个人分享</div>
+    <div>
+      <div class="format-title"><em>Diary</em> Notebook</div>
+      <div class="format-sub-cn">问题、错误理解、想通、具体经历 ──── 要有人味，不是报告</div>
+    </div>
+    <div class="format-tags">
+      <span class="tag">diary</span><span class="tag">before-after</span>
+      <span class="tag">lesson</span><span class="tag">soft-cta</span>
+    </div>
+  </div>
+
+  <div class="shots-row">
+    <div class="shot">
+      <div class="shot-label"><span class="role">OPEN</span><span></span><span class="module">personal-hook</span></div>
+      <div class="frame-9-16 p-bg p1">
+        <div class="ip-shell-progress" style="--progress: 6%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.55);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-personal);">04 · 个人 / PERSONAL</div>
+        </div>
+        <div class="body">
+          <div class="date-stamp">2026, 04 · 一个周二的早上</div>
+          <div class="opener">写下来，怕忘了。</div>
+          <div class="confession">
+            去年这个时候，我差点<u>把自己的公司搞倒闭</u>，<br>
+            <span style="opacity: 0.6;">而我以为我在做的，是"加速增长"。</span>
+          </div>
+          <div class="scribble">第一次知道，努力错方向有多贵</div>
+          <div class="stamp">CONFIDENTIAL · DRAFT</div>
+        </div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · hidden</span><span></span>
+        <span style="color: var(--accent-personal);">让画面像手记</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">MIDDLE</span><span></span><span class="module">before-after</span></div>
+      <div class="frame-9-16 p-bg p2">
+        <div class="ip-shell-progress" style="--progress: 50%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.55);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-personal);">04 · 个人 / PERSONAL</div>
+        </div>
+        <div class="body">
+          <div class="label">那时候 / 后来</div>
+          <div class="ba">
+            <div class="panel before">
+              <div class="head">那时候</div>
+              <div class="text">每天看 GMV 有没有涨，<em>把"忙"当成"对"</em>，<br>团队累趴了一个又一个。</div>
+            </div>
+            <div class="arrow">↓ 一次现金流危机之后</div>
+            <div class="panel after">
+              <div class="head">后来</div>
+              <div class="text">每周问自己：<em>下周停掉哪件事，公司不会死？</em><br>停得多了，反而长得快。</div>
+            </div>
+          </div>
+        </div>
+        <div class="ip-shell-subtitle dark caption">那时候 · 后来</div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-personal);">前后对比</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">CLOSE</span><span></span><span class="module">lesson-card</span></div>
+      <div class="frame-9-16 p-bg p3">
+        <div class="ip-shell-progress" style="--progress: 96%"></div>
+        <div class="ip-shell-top" style="color: rgba(0,0,0,0.55);">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--ink); color: var(--paper);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-personal);">04 · 个人 / PERSONAL</div>
+        </div>
+        <div class="body">
+          <div class="pin">
+            <h4>给同样在加速的你</h4>
+            <div class="lessons">
+              <div class="li">先确认<em>方向</em>，再优化速度。</div>
+              <div class="li">忙不是勋章，是<em>对路径选择的逃避</em>。</div>
+              <div class="li">每周删一件事，公司活得久一点。</div>
+            </div>
+          </div>
+          <div class="closer">愿你比我聪明一点</div>
+        </div>
+        <div class="ip-shell-handle-bottom dark">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · hidden</span><span></span>
+        <span style="color: var(--accent-personal);">便签即字幕</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RECOMMENDATION -->
+<section class="format-section recommendation">
+  <div class="format-header">
+    <div class="format-index"><span class="num">05</span> RECOMMENDATION / 推荐类</div>
+    <div>
+      <div class="format-title"><em>Window</em> Display</div>
+      <div class="format-sub-cn">解决什么、适合谁、不适合谁、判断 ──── 不做硬广，做有判断的橱窗</div>
+    </div>
+    <div class="format-tags">
+      <span class="tag">tool</span><span class="tag">book</span>
+      <span class="tag">course</span><span class="tag">place</span>
+    </div>
+  </div>
+
+  <div class="shots-row">
+    <div class="shot">
+      <div class="shot-label"><span class="role">OPEN</span><span></span><span class="module">recommendation-hook</span></div>
+      <div class="frame-9-16 r-bg r1">
+        <div class="ip-shell-progress" style="--progress: 6%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-recommendation); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-recommendation);">05 · 推荐 / RECOMMEND</div>
+        </div>
+        <div class="body">
+          <div class="label">tool · 工具推荐</div>
+          <div class="product">
+            <div class="product-mark">f</div>
+            <div class="product-name">Field Notes</div>
+            <div class="product-tag">writing · capture · ¥38</div>
+          </div>
+          <div class="pitch">一个让我把<em>晚上躺在床上的想法</em><br>真正写完的小本子。</div>
+        </div>
+        <div class="ip-shell-subtitle">今天推荐：一个 38 块钱的小本子，但救过我五次</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · full</span><span></span>
+        <span style="color: var(--accent-recommendation);">画面留白 · 完整字幕</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">MIDDLE</span><span></span><span class="module">fit-check</span></div>
+      <div class="frame-9-16 r-bg r2">
+        <div class="ip-shell-progress" style="--progress: 56%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-recommendation); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-recommendation);">05 · 推荐 / RECOMMEND</div>
+        </div>
+        <div class="body">
+          <div class="label">FIT CHECK · 适合你吗？</div>
+          <div class="question">在掏钱之前，先看看这两栏。</div>
+          <div class="columns">
+            <div class="col fit">
+              <h5>适合</h5>
+              <div class="li">手机记不住灵感的人</div>
+              <div class="li">每天 2 公里通勤</div>
+              <div class="li">想戒掉打开手机就刷</div>
+              <div class="li">追求材质手感</div>
+            </div>
+            <div class="col unfit">
+              <h5>不适合</h5>
+              <div class="li">需要长篇结构化写作</div>
+              <div class="li">已经在用 Notion 流</div>
+              <div class="li">不愿意每月换一本</div>
+              <div class="li">字写得太大的人</div>
+            </div>
+          </div>
+        </div>
+        <div class="ip-shell-subtitle caption">三秒判断 · 适配度</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · caption</span><span></span>
+        <span style="color: var(--accent-recommendation);">两栏对照</span>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="shot-label"><span class="role">CLOSE</span><span></span><span class="module">final-verdict</span></div>
+      <div class="frame-9-16 r-bg r3">
+        <div class="ip-shell-progress" style="--progress: 96%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-recommendation); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-recommendation);">05 · 推荐 / RECOMMEND</div>
+        </div>
+        <div class="body">
+          <div class="label">最终判断 · verdict</div>
+          <div class="score">
+            <span class="n">8.2</span>
+            <span class="denom">/ 10</span>
+            <span class="stars">★★★★☆</span>
+          </div>
+          <div class="verdict">如果你正在<em>找一个能逼自己</em><br>把想法写完的物理工具，<br>它是这两年我用过<em>最值的一个</em>。</div>
+          <div class="caveat">⚠ 买前提醒：纸张不耐反复涂改，<br>如果你的草稿喜欢"画了又改"，慎入。</div>
+          <div class="sig">— 邓宇</div>
+        </div>
+        <div class="ip-shell-subtitle">不一定适合你，但这是我用过最值的之一</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab</div>
+      </div>
+      <div class="shot-label">
+        <span class="role" style="color: rgba(255,255,255,0.5);">subtitle · full</span><span></span>
+        <span style="color: var(--accent-recommendation);">明确判断 · 加买前提醒</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ASPECT VARIATIONS -->
+<section class="format-section recommendation aspect-section" style="background: linear-gradient(180deg, transparent, rgba(255,122,26,0.03));">
+  <div class="format-header">
+    <div class="format-index"><span class="num">06</span> ASPECT / 比例适配</div>
+    <div>
+      <div class="format-title"><em>Same</em> shell, <em>three</em> canvases.</div>
+      <div class="format-sub-cn">9:16 优先 ──── 1:1 横屏卡片 ──── 16:9 长文配图</div>
+    </div>
+    <div class="format-tags">
+      <span class="tag">9:16</span><span class="tag">1:1</span><span class="tag">16:9</span>
+    </div>
+  </div>
+
+  <div class="aspect-grid">
+    <div class="aspect-col">
+      <div class="shot-label">
+        <span class="role">PRIMARY · 竖屏</span><span></span>
+        <span class="ratio">9:16</span>
+      </div>
+      <div class="frame-9-16 r-bg r3">
+        <div class="ip-shell-progress" style="--progress: 96%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-recommendation); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-recommendation);">05 · 推荐</div>
+        </div>
+        <div class="body">
+          <div class="label">最终判断 · verdict</div>
+          <div class="score">
+            <span class="n">8.2</span><span class="denom">/ 10</span>
+            <span class="stars">★★★★☆</span>
+          </div>
+          <div class="verdict">如果你正在找一个<em>能逼自己写完</em>的物理工具，<br>它是我两年里<em>最值的一个</em>。</div>
+          <div class="caveat">⚠ 纸张不耐涂改，慎入。</div>
+          <div class="sig">— 邓宇</div>
+        </div>
+        <div class="ip-shell-subtitle">这是我用过最值的小本子之一</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab</div>
+      </div>
+    </div>
+
+    <div class="aspect-col">
+      <div class="shot-label">
+        <span class="role">SQUARE · IG / 小红书</span><span></span>
+        <span class="ratio">1:1</span>
+      </div>
+      <div class="frame-9-16 frame-1-1 r-bg r3">
+        <div class="ip-shell-progress" style="--progress: 96%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-recommendation); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-recommendation);">05 · 推荐</div>
+        </div>
+        <div class="body" style="padding: 60px 40px 70px;">
+          <div class="label">最终判断 · verdict</div>
+          <div class="score">
+            <span class="n">8.2</span><span class="denom">/ 10</span>
+            <span class="stars">★★★★☆</span>
+          </div>
+          <div class="verdict" style="font-size: 18px;">一个能逼你<em>把想法写完</em>的<br>物理小本子。</div>
+          <div class="sig">— 邓宇</div>
+        </div>
+        <div class="ip-shell-subtitle">一个能逼你写完的小本子</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab</div>
+      </div>
+    </div>
+
+    <div class="aspect-col">
+      <div class="shot-label">
+        <span class="role">WIDE · YouTube / B 站</span><span></span>
+        <span class="ratio">16:9</span>
+      </div>
+      <div class="frame-9-16 frame-16-9 r-bg r3">
+        <div class="ip-shell-progress" style="--progress: 96%"></div>
+        <div class="ip-shell-top">
+          <div class="ip-shell-mark"><span class="dot" style="background: var(--accent-recommendation); color: var(--ink);">D</span> DENG·LAB</div>
+          <div style="color: var(--accent-recommendation);">05 · 推荐 / RECOMMEND</div>
+        </div>
+        <div class="body" style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 24px; padding: 50px 40px 60px;">
+          <div style="display: flex; flex-direction: column; gap: 14px; justify-content: center;">
+            <div class="label">最终判断 · verdict</div>
+            <div class="score" style="border: none; padding: 0;">
+              <span class="n" style="font-size: 64px;">8.2</span>
+              <span class="denom">/ 10</span>
+              <span class="stars">★★★★☆</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px; justify-content: center;">
+            <div class="verdict" style="font-size: 15px;">如果你正在找一个<em>能逼自己写完想法</em>的物理工具，<br>它是我这两年用过<em>最值的一个</em>。</div>
+            <div class="caveat">⚠ 纸张不耐反复涂改，喜欢画了又改的草稿党慎入。</div>
+            <div class="sig" style="align-self: flex-start;">— 邓宇</div>
+          </div>
+        </div>
+        <div class="ip-shell-subtitle">如果你需要一个能逼自己把想法写完的物理工具，这是我两年里最值的一个</div>
+        <div class="ip-shell-handle-bottom">@dengyu_lab · 2026</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SUBTITLE MATRIX -->
+<section class="matrix-section">
+  <div class="matrix-wrap">
+    <div class="format-header" style="margin-bottom: 0;">
+      <div class="format-index" style="--accent: #fff;"><span class="num" style="color: #fff;">07</span> SUBTITLE / 字幕策略</div>
+      <div>
+        <div class="format-title">不是<em style="color: #fff; font-style: italic;">一刀切</em>，是按镜头决定。</div>
+        <div class="format-sub-cn">画面文字与字幕，谁退一步 ──── 由镜头说了算</div>
+      </div>
+      <div></div>
+    </div>
+
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th>Module</th><th>Format</th><th>Density</th><th>Subtitle</th><th>原因</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>knowledge-hook</td><td>knowledge</td><td>低 · 大字反常识</td>
+          <td><span class="tag-mode m-hidden">hidden</span></td>
+          <td>画面就是字幕，不要重叠。</td>
+        </tr>
+        <tr>
+          <td>mechanism-map</td><td>knowledge</td><td>高 · 节点 + 关系</td>
+          <td><span class="tag-mode m-caption">caption</span></td>
+          <td>口播长，画面密 → 关键词。</td>
+        </tr>
+        <tr>
+          <td>terminal-hook</td><td>tech</td><td>高 · 终端 + 标题</td>
+          <td><span class="tag-mode m-caption">caption</span></td>
+          <td>避免压住代码。</td>
+        </tr>
+        <tr>
+          <td>workflow-steps</td><td>tech</td><td>高 · 5 步流程</td>
+          <td><span class="tag-mode m-caption">caption</span></td>
+          <td>步骤名靠画面承载。</td>
+        </tr>
+        <tr>
+          <td>breaking-context</td><td>news</td><td>中 · 来源 + 标题</td>
+          <td><span class="tag-mode m-caption">caption</span></td>
+          <td>来源已上画面。</td>
+        </tr>
+        <tr>
+          <td>editorial-verdict</td><td>news</td><td>中 · 三点判断</td>
+          <td><span class="tag-mode m-caption">caption</span></td>
+          <td>"据公开信息"必须显式。</td>
+        </tr>
+        <tr>
+          <td>personal-hook</td><td>personal</td><td>低 · 手记体</td>
+          <td><span class="tag-mode m-hidden">hidden</span></td>
+          <td>留白即语气。</td>
+        </tr>
+        <tr>
+          <td>lesson-card</td><td>personal</td><td>中 · 便签三条</td>
+          <td><span class="tag-mode m-hidden">hidden</span></td>
+          <td>便签本身就是字幕。</td>
+        </tr>
+        <tr>
+          <td>recommendation-hook</td><td>recommendation</td><td>低 · 产品大图</td>
+          <td><span class="tag-mode m-full">full</span></td>
+          <td>有产品图，留口播给字幕。</td>
+        </tr>
+        <tr>
+          <td>fit-check</td><td>recommendation</td><td>高 · 双栏</td>
+          <td><span class="tag-mode m-caption">caption</span></td>
+          <td>两栏要看清，字幕收敛。</td>
+        </tr>
+        <tr>
+          <td>final-verdict</td><td>recommendation</td><td>中 · 评分 + 判断</td>
+          <td><span class="tag-mode m-full">full</span></td>
+          <td>结论级镜头，字幕完整托底。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="colophon">"统一的是品牌，变化的是镜头语言。"</div>
+  <div class="meta">DENG·LAB · IP CONTENT VIDEO SYSTEM · v0.1 · 2026</div>
+</footer>
+
+</body>
+</html>

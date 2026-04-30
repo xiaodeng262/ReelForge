@@ -26,11 +26,12 @@ export const RecapCardScene: React.FC<SceneRenderProps> = ({
   const bullets = (scene.bullets ?? []).slice(0, 4);
 
   // ease-out-quart
-  const captionRuleScale = enterValue(enterProgress, 0, 1, [0, 0.4]);
-  const captionOpacity = enterValue(enterProgress, 0, 1, [0, 0.4]);
-  const headingClip = enterValue(enterProgress, 100, 0, [0.15, 0.7]);
-  const headingY = enterValue(enterProgress, 8, 0, [0.15, 0.7]);
-  const linkOpacity = enterValue(enterProgress, 0, 1, [0.65, 0.95]);
+  // heading 延后到 fade 后再 reveal，避免与前一场景的大字叠加。
+  const captionRuleScale = enterValue(enterProgress, 0, 1, [0.15, 0.5]);
+  const captionOpacity = enterValue(enterProgress, 0, 1, [0.15, 0.45]);
+  const headingClip = enterValue(enterProgress, 100, 0, [0.45, 0.9]);
+  const headingY = enterValue(enterProgress, 8, 0, [0.45, 0.9]);
+  const linkOpacity = enterValue(enterProgress, 0, 1, [0.78, 1]);
 
   return (
     <div
